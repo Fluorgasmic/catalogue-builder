@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-color: #0d0d0d;
+    color: #e5e7eb;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #3d3d3d;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-surface-2 border border-surface-5 rounded-lg;
+  }
+
+  .btn-primary {
+    @apply bg-accent hover:bg-accent-light active:bg-accent-dark text-white font-medium px-4 py-2 rounded-lg
+           transition-colors duration-150 text-sm flex items-center gap-2 cursor-pointer;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-4 hover:bg-surface-5 text-gray-200 font-medium px-4 py-2 rounded-lg
+           transition-colors duration-150 text-sm flex items-center gap-2 cursor-pointer border border-surface-6;
+  }
+
+  .btn-ghost {
+    @apply hover:bg-surface-4 text-gray-400 hover:text-gray-200 font-medium px-3 py-1.5 rounded-md
+           transition-colors duration-150 text-sm flex items-center gap-2 cursor-pointer;
+  }
+
+  .btn-icon {
+    @apply hover:bg-surface-4 text-gray-400 hover:text-gray-200 p-1.5 rounded-md
+           transition-colors duration-150 flex items-center justify-center cursor-pointer;
+  }
+
+  .input {
+    @apply bg-surface-3 border border-surface-5 hover:border-surface-6 focus:border-accent
+           text-gray-200 text-sm rounded-lg px-3 py-2 outline-none transition-colors w-full
+           placeholder:text-gray-600;
+  }
+
+  .label {
+    @apply text-xs font-medium text-gray-400 uppercase tracking-wider;
+  }
+
+  .section-title {
+    @apply text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3;
+  }
+
+  .tab-active {
+    @apply bg-surface-4 text-white border-b-2 border-accent;
+  }
+
+  .tab-inactive {
+    @apply text-gray-500 hover:text-gray-300 hover:bg-surface-3;
+  }
+
+  /* Page paper shadow */
+  .page-shadow {
+    box-shadow:
+      0 4px 6px -1px rgba(0,0,0,0.5),
+      0 2px 4px -1px rgba(0,0,0,0.4),
+      0 0 0 1px rgba(255,255,255,0.05);
+  }
+
+  /* Drag handle */
+  .drag-handle {
+    @apply cursor-grab active:cursor-grabbing;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    @apply absolute z-50 px-2 py-1 text-xs bg-surface-6 text-gray-200 rounded-md
+           pointer-events-none whitespace-nowrap;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom range input */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: #3d3d3d;
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #7C5CFC;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -5px;
+}
+
+input[type="range"]:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.3);
+}
+
+/* Number input no arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Animate pages in preview */
+.page-enter {
+  animation: fadeIn 0.2s ease-out;
+}
