@@ -337,8 +337,57 @@ function processTemplateVars(blocks, pageIndex, totalPages, groupLabel) {
 function HeaderBlocksRenderer({ blocks, top, height, pageWpx, padLeft, padRight, bgColor, zoom, pageIndex, totalPages, groupLabel, imageBasePath, imageColumn, imageExtension }) {
   const scale = zoom / 100
   const processed = processTemplateVars(blocks, pageIndex, totalPages, groupLabel)
-  const contentW = pageWpx - padLeft - padRight
 
+  // Free-form: blocks have x, y, w, h in mm — render with absolute positioning
+  const hasFreeForm = processed.some(b => b.x != null)
+
+  if (hasFreeForm) {
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top,
+          height,
+          overflow: 'hidden',
+          backgroundColor: bgColor === 'transparent' ? undefined : bgColor,
+        }}
+      >
+        {processed.map(block => {
+          const bx = mmToCssPx(block.x ?? 0, zoom)
+          const by = mmToCssPx(block.y ?? 0, zoom)
+          const bw = block.w != null ? mmToCssPx(block.w, zoom) : (pageWpx - padLeft - padRight)
+          const bh = block.h != null ? mmToCssPx(block.h, zoom) : undefined
+
+          return (
+            <div key={block.id} style={{
+              position: 'absolute',
+              left: bx,
+              top: by,
+              width: bw,
+              height: bh ?? 'auto',
+              overflow: 'hidden',
+            }}>
+              <AnyBlock
+                block={block}
+                row={{}}
+                vignetteWpx={bw}
+                vignetteHpx={bh ?? height}
+                scale={scale}
+                imageBasePath={imageBasePath}
+                imageColumn={imageColumn}
+                imageExtension={imageExtension}
+              />
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Legacy flow layout (blocks without x/y/w/h)
+  const contentW = pageWpx - padLeft - padRight
   return (
     <div
       style={{
@@ -376,8 +425,57 @@ function HeaderBlocksRenderer({ blocks, top, height, pageWpx, padLeft, padRight,
 function FooterBlocksRenderer({ blocks, bottom, height, pageWpx, padLeft, padRight, bgColor, zoom, pageIndex, totalPages, groupLabel, imageBasePath, imageColumn, imageExtension }) {
   const scale = zoom / 100
   const processed = processTemplateVars(blocks, pageIndex, totalPages, groupLabel)
-  const contentW = pageWpx - padLeft - padRight
 
+  // Free-form: blocks have x, y, w, h in mm — render with absolute positioning
+  const hasFreeForm = processed.some(b => b.x != null)
+
+  if (hasFreeForm) {
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom,
+          height,
+          overflow: 'hidden',
+          backgroundColor: bgColor === 'transparent' ? undefined : bgColor,
+        }}
+      >
+        {processed.map(block => {
+          const bx = mmToCssPx(block.x ?? 0, zoom)
+          const by = mmToCssPx(block.y ?? 0, zoom)
+          const bw = block.w != null ? mmToCssPx(block.w, zoom) : (pageWpx - padLeft - padRight)
+          const bh = block.h != null ? mmToCssPx(block.h, zoom) : undefined
+
+          return (
+            <div key={block.id} style={{
+              position: 'absolute',
+              left: bx,
+              top: by,
+              width: bw,
+              height: bh ?? 'auto',
+              overflow: 'hidden',
+            }}>
+              <AnyBlock
+                block={block}
+                row={{}}
+                vignetteWpx={bw}
+                vignetteHpx={bh ?? height}
+                scale={scale}
+                imageBasePath={imageBasePath}
+                imageColumn={imageColumn}
+                imageExtension={imageExtension}
+              />
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Legacy flow layout (blocks without x/y/w/h)
+  const contentW = pageWpx - padLeft - padRight
   return (
     <div
       style={{

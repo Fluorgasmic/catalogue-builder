@@ -2,7 +2,7 @@ import { useState, useRef, useMemo } from 'react'
 import {
   Type, Image as ImageIcon, Minus, AlignLeft, AlignCenter, AlignRight,
   Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Upload, X, Layers,
-  ArrowUpFromLine, ArrowDownFromLine
+  ArrowUpFromLine, ArrowDownFromLine, Move, Maximize2, Copy
 } from 'lucide-react'
 import useCatalogStore from '../../store/catalogStore'
 import { calcVignetteDimensions, mmToCssPx } from '../../utils/layoutCalculator'
@@ -50,14 +50,21 @@ function getFontFormat(fileName) {
   return 'truetype'
 }
 
-// ─── Block creation ──────────────────────────────────────────────────────────
+const MM_PER_PX = 25.4 / 96
 
-function createHFBlock(type) {
-  const base = { id: nanoid(), type, position: 'flow', visible: true }
+// ─── Block creation (free-form: all blocks have x, y, w, h in mm) ───────────
+
+function createHFBlock(type, zoneW = 210, zoneH = 18, existingCount = 0) {
+  const base = { id: nanoid(), type, visible: true }
+  const padL = 12 // default margin hint
+  const yOff = Math.min(existingCount * 4, Math.max(0, zoneH - 6))
+
   switch (type) {
     case 'static':
       return {
         ...base,
+        x: padL, y: yOff,
+        w: zoneW - padL * 2, h: 6,
         staticText: '',
         fontSize: 10, fontWeight: 400, fontFamily: 'inherit',
         color: '#111111', align: 'left', vAlign: 'center',
@@ -65,11 +72,36 @@ function createHFBlock(type) {
         bgColor: null, bgBorderRadius: 0, widthMode: 'full',
       }
     case 'image':
-      return { ...base, directSrc: null, heightPct: 80, fit: 'contain' }
+      return {
+        ...base,
+        x: padL, y: Math.max(1, (zoneH - Math.min(zoneH - 2, 14)) / 2),
+        w: Math.min(30, zoneW * 0.2), h: Math.min(zoneH - 2, 14),
+        directSrc: null, heightPct: 100, fit: 'contain',
+      }
     case 'separator':
-      return { ...base, thickness: 1, color: '#e5e7eb', marginV: 1, separatorWidth: '100%' }
+      return {
+        ...base,
+        x: padL, y: Math.min(yOff + 2, zoneH - 2),
+        w: zoneW - padL * 2, h: 2,
+        thickness: 1, color: '#e5e7eb', marginV: 0.5, separatorWidth: '100%',
+      }
     default:
       return base
+  }
+}
+
+// ─── Fallback block height (for old blocks without h) ────────────────────────
+
+function fallbackBlockH(block, zoneHmm) {
+  switch (block.type) {
+    case 'static':
+      return Math.max(4, (block.fontSize ?? 10) * 0.45 * (block.maxLines ?? 1) + (block.paddingV ?? 2) * 0.6)
+    case 'image':
+      return (block.heightPct ?? 80) / 100 * zoneHmm
+    case 'separator':
+      return Math.max(1.5, (block.marginV ?? 1) * 0.8 + (block.thickness ?? 1) * 0.3)
+    default:
+      return 5
   }
 }
 
@@ -95,13 +127,23 @@ export default function HeaderFooterBuilder() {
 
   const dims = useMemo(() => calcVignetteDimensions(grid, header, footer), [grid, header, footer])
 
+  const zoneWmm = dims.pageW
+  const zoneHmm = sectionConfig.height ?? (section === 'header' ? 18 : 8)
+
   const handleAddBlock = (type) => {
-    const block = createHFBlock(type)
+    const block = createHFBlock(type, zoneWmm, zoneHmm, blocks.length)
     addHFBlock(section, block)
   }
 
   const handleUpdate = (id, patch) => updateHFBlock(section, id, patch)
   const handleRemove = (id) => removeHFBlock(section, id)
+
+  const handleDuplicate = (id) => {
+    const orig = blocks.find(b => b.id === id)
+    if (!orig) return
+    const dup = { ...orig, id: nanoid(), x: (orig.x ?? 0) + 3, y: (orig.y ?? 0) + 3 }
+    addHFBlock(section, dup)
+  }
 
   const moveUp = (id) => {
     const idx = blocks.findIndex(b => b.id === id)
@@ -123,7 +165,7 @@ export default function HeaderFooterBuilder() {
   return (
     <div className="flex h-full overflow-hidden">
 
-      {/* ══ Left panel ════════════════════════════════════════ */}
+      {/* == Left panel ================================================= */}
       <div className="w-52 shrink-0 bg-surface-2 border-r border-surface-4 flex flex-col overflow-hidden">
 
         {/* Section tabs */}
@@ -161,10 +203,13 @@ export default function HeaderFooterBuilder() {
           </div>
         </div>
 
-        {/* Block list */}
+        {/* Block list (z-order: first = back, last = front) */}
         <div className="flex-1 overflow-y-auto py-2">
-          <div className="px-3 mb-2">
-            <p className="section-title">Blocs ({blocks.length})</p>
+          <div className="px-3 mb-2 flex items-center justify-between">
+            <p className="section-title mb-0">Blocs ({blocks.length})</p>
+            {blocks.length > 1 && (
+              <span className="text-[9px] text-gray-600">z-order</span>
+            )}
           </div>
           {blocks.length === 0 ? (
             <div className="px-3 py-4 text-center text-xs text-gray-600">
@@ -182,6 +227,7 @@ export default function HeaderFooterBuilder() {
                   onSelect={() => setSelectedHFBlock(block.id)}
                   onToggle={() => handleUpdate(block.id, { visible: !block.visible })}
                   onRemove={() => handleRemove(block.id)}
+                  onDuplicate={() => handleDuplicate(block.id)}
                   onMoveUp={() => moveUp(block.id)}
                   onMoveDown={() => moveDown(block.id)}
                 />
@@ -191,7 +237,7 @@ export default function HeaderFooterBuilder() {
         </div>
       </div>
 
-      {/* ══ Center — Canvas preview ═══════════════════════════ */}
+      {/* == Center -- Canvas preview ==================================== */}
       <div className="flex-1 flex flex-col overflow-hidden bg-surface-1">
 
         {/* Toolbar */}
@@ -200,7 +246,7 @@ export default function HeaderFooterBuilder() {
             <span className="text-xs text-gray-500">
               {section === 'header' ? 'En-tete' : 'Pied de page'} :
               <span className="text-gray-300 font-medium ml-1">
-                {dims.pageW.toFixed(0)} x {(sectionConfig.height ?? (section === 'header' ? 18 : 8)).toFixed(0)} mm
+                {dims.pageW.toFixed(0)} x {zoneHmm.toFixed(0)} mm
               </span>
             </span>
           </div>
@@ -222,6 +268,11 @@ export default function HeaderFooterBuilder() {
               section={section}
               dims={dims}
               grid={grid}
+              zoneWmm={zoneWmm}
+              zoneHmm={zoneHmm}
+              selectedBlockId={selectedHFBlockId}
+              onSelectBlock={setSelectedHFBlock}
+              onUpdateBlock={(id, patch) => handleUpdate(id, patch)}
             />
           ) : (
             <div className="flex flex-col items-center gap-3 text-center">
@@ -243,17 +294,22 @@ export default function HeaderFooterBuilder() {
               <code className="mx-1 text-accent/70">{'{page}'}</code>
               <code className="mx-1 text-accent/70">{'{total}'}</code>
               <code className="mx-1 text-accent/70">{'{group}'}</code>
+              <span className="ml-3 text-gray-600">
+                Glissez les blocs pour les positionner. Coin inferieur droit pour redimensionner.
+              </span>
             </p>
           </div>
         )}
       </div>
 
-      {/* ══ Right panel — Block editor or general settings ════ */}
+      {/* == Right panel -- Block editor or general settings ============= */}
       <div className="w-72 shrink-0 bg-surface-2 border-l border-surface-4 overflow-y-auto">
         {selectedBlock ? (
           <HFBlockEditor
             block={selectedBlock}
             section={section}
+            zoneWmm={zoneWmm}
+            zoneHmm={zoneHmm}
             onUpdate={(patch) => handleUpdate(selectedBlock.id, patch)}
           />
         ) : (
@@ -268,22 +324,25 @@ export default function HeaderFooterBuilder() {
   )
 }
 
-// ─── Preview canvas ──────────────────────────────────────────────────────────
+// ─── Free-form preview canvas ────────────────────────────────────────────────
 
-function HFPreviewCanvas({ blocks, sectionConfig, section, dims, grid }) {
+function HFPreviewCanvas({
+  blocks, sectionConfig, section, dims, grid,
+  zoneWmm, zoneHmm,
+  selectedBlockId, onSelectBlock, onUpdateBlock,
+}) {
   const { imageBasePath, imageColumn, imageExtension } = useCatalogStore()
+  const canvasRef = useRef(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const CANVAS_WIDTH = 580
-  const heightMm = sectionConfig.height ?? (section === 'header' ? 18 : 8)
-  const widthMm = dims.pageW
-
-  const scale = CANVAS_WIDTH / mmToCssPx(widthMm, 100)
-  const wPx = CANVAS_WIDTH
-  const hPx = mmToCssPx(heightMm, 100) * scale
+  const pxPerMm = CANVAS_WIDTH / zoneWmm
+  const canvasH = zoneHmm * pxPerMm
+  const scale = pxPerMm / (96 / 25.4) // AnyBlock font/padding scale
 
   const visibleBlocks = blocks.filter(b => b.visible !== false)
 
-  // Process template variables for preview
+  // Template variable replacement for preview
   const processedBlocks = visibleBlocks.map(b => {
     if (b.type === 'static' && b.staticText) {
       return {
@@ -299,45 +358,167 @@ function HFPreviewCanvas({ blocks, sectionConfig, section, dims, grid }) {
 
   const hasBg = sectionConfig.bgColor && sectionConfig.bgColor !== 'transparent'
 
+  // Padding guides (mm)
+  const padLmm = sectionConfig.paddingLeft ?? grid.margins.left
+  const padRmm = sectionConfig.paddingRight ?? grid.margins.right
+
+  // ─── Drag logic ──────────────────────────────────────────
+  const startDrag = (e, block, type) => {
+    e.stopPropagation()
+    e.preventDefault()
+    onSelectBlock(block.id)
+
+    const ppm = pxPerMm
+    const update = onUpdateBlock
+    const zwmm = zoneWmm
+    const zhmm = zoneHmm
+
+    const state = {
+      type,
+      blockId: block.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: block.x ?? 0,
+      origY: block.y ?? 0,
+      origW: block.w ?? zwmm,
+      origH: block.h ?? fallbackBlockH(block, zhmm),
+    }
+
+    setIsDragging(true)
+
+    const onMove = (ev) => {
+      const dx = (ev.clientX - state.startX) / ppm
+      const dy = (ev.clientY - state.startY) / ppm
+
+      if (state.type === 'move') {
+        update(state.blockId, {
+          x: Math.round(Math.max(0, state.origX + dx) * 10) / 10,
+          y: Math.round(Math.max(0, state.origY + dy) * 10) / 10,
+        })
+      } else {
+        // resize
+        update(state.blockId, {
+          w: Math.round(Math.max(5, state.origW + dx) * 10) / 10,
+          h: Math.round(Math.max(2, state.origH + dy) * 10) / 10,
+        })
+      }
+    }
+
+    const onUp = () => {
+      setIsDragging(false)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
   return (
     <div className="flex flex-col items-center gap-3">
       <div
-        className="relative bg-white select-none overflow-hidden"
+        ref={canvasRef}
+        className="relative select-none"
         style={{
-          width: wPx,
-          height: hPx,
+          width: CANVAS_WIDTH,
+          height: canvasH,
           flexShrink: 0,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)',
           backgroundColor: hasBg ? sectionConfig.bgColor : '#ffffff',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)',
+          cursor: isDragging ? 'grabbing' : 'default',
+          // subtle mm grid
+          backgroundImage: `
+            linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px)
+          `,
+          backgroundSize: `${5 * pxPerMm}px ${5 * pxPerMm}px`,
+        }}
+        onClick={(e) => {
+          if (e.target === canvasRef.current) onSelectBlock(null)
         }}
       >
-        {processedBlocks.length === 0 ? (
+        {/* Padding guides */}
+        <div className="absolute top-0 bottom-0 pointer-events-none"
+          style={{ left: padLmm * pxPerMm, borderLeft: '1px dashed rgba(124,92,252,0.35)' }} />
+        <div className="absolute top-0 bottom-0 pointer-events-none"
+          style={{ right: padRmm * pxPerMm, borderRight: '1px dashed rgba(124,92,252,0.35)' }} />
+
+        {/* Empty state */}
+        {processedBlocks.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <p style={{ fontSize: 11, color: '#d1d5db' }}>
               Ajoutez des blocs pour construire {section === 'header' ? "l'en-tete" : 'le pied de page'}
             </p>
           </div>
-        ) : (
-          <div className="w-full flex flex-col" style={{ maxHeight: hPx }}>
-            {processedBlocks.map(block => (
-              <div key={block.id} className="shrink-0">
+        )}
+
+        {/* Blocks */}
+        {processedBlocks.map((block, idx) => {
+          const bx = (block.x ?? 0) * pxPerMm
+          const by = (block.y ?? 0) * pxPerMm
+          const bw = (block.w ?? zoneWmm) * pxPerMm
+          const bhMm = block.h ?? fallbackBlockH(block, zoneHmm)
+          const bh = bhMm * pxPerMm
+          const isSelected = block.id === selectedBlockId
+
+          return (
+            <div
+              key={block.id}
+              className="absolute group"
+              style={{
+                left: bx,
+                top: by,
+                width: bw,
+                height: bh,
+                cursor: isDragging ? 'grabbing' : 'move',
+                zIndex: isSelected ? 50 : idx + 1,
+              }}
+              onPointerDown={(e) => startDrag(e, block, 'move')}
+            >
+              {/* Block content */}
+              <div className="w-full h-full overflow-hidden">
                 <AnyBlock
                   block={block}
                   row={{}}
-                  vignetteWpx={wPx}
-                  vignetteHpx={hPx}
+                  vignetteWpx={bw}
+                  vignetteHpx={bh}
                   scale={scale}
                   imageBasePath={imageBasePath}
                   imageColumn={imageColumn}
                   imageExtension={imageExtension}
                 />
               </div>
-            ))}
-          </div>
-        )}
+
+              {/* Hover outline */}
+              {!isSelected && (
+                <div className="absolute inset-0 border border-transparent group-hover:border-accent/30 pointer-events-none rounded-sm transition-colors" />
+              )}
+
+              {/* Selection ring + resize handle */}
+              {isSelected && (
+                <>
+                  <div className="absolute inset-0 ring-2 ring-accent/70 pointer-events-none rounded-sm" />
+                  {/* Corner handles */}
+                  <div className="absolute w-2 h-2 bg-accent rounded-full pointer-events-none"
+                    style={{ left: -3, top: -3 }} />
+                  <div className="absolute w-2 h-2 bg-accent rounded-full pointer-events-none"
+                    style={{ right: -3, top: -3 }} />
+                  <div className="absolute w-2 h-2 bg-accent rounded-full pointer-events-none"
+                    style={{ left: -3, bottom: -3 }} />
+                  {/* Bottom-right resize handle */}
+                  <div
+                    className="absolute w-3 h-3 bg-accent border-2 border-white rounded-sm cursor-se-resize z-10"
+                    style={{ right: -5, bottom: -5 }}
+                    onPointerDown={(e) => startDrag(e, block, 'resize')}
+                  />
+                </>
+              )}
+            </div>
+          )
+        })}
       </div>
       <p className="text-[10px] text-gray-600">
-        {widthMm.toFixed(0)} x {heightMm} mm — Apercu
+        {zoneWmm.toFixed(0)} x {zoneHmm} mm
       </p>
     </div>
   )
@@ -345,7 +526,7 @@ function HFPreviewCanvas({ blocks, sectionConfig, section, dims, grid }) {
 
 // ─── Block list item ─────────────────────────────────────────────────────────
 
-function BlockItem({ block, selected, isFirst, isLast, onSelect, onToggle, onRemove, onMoveUp, onMoveDown }) {
+function BlockItem({ block, selected, isFirst, isLast, onSelect, onToggle, onRemove, onDuplicate, onMoveUp, onMoveDown }) {
   const Icon = TYPE_ICONS[block.type] ?? Type
   const color = TYPE_COLORS[block.type] ?? '#888'
 
@@ -370,12 +551,19 @@ function BlockItem({ block, selected, isFirst, isLast, onSelect, onToggle, onRem
       </span>
       <div className={`flex items-center gap-0.5 ${selected ? 'flex' : 'hidden group-hover:flex'}`}>
         <button className="p-0.5 rounded hover:bg-surface-5 text-gray-600 hover:text-gray-300 disabled:opacity-25"
+          title="Reculer (z-order)"
           onClick={(e) => { e.stopPropagation(); onMoveUp() }} disabled={isFirst}>
           <ChevronUp size={10} />
         </button>
         <button className="p-0.5 rounded hover:bg-surface-5 text-gray-600 hover:text-gray-300 disabled:opacity-25"
+          title="Avancer (z-order)"
           onClick={(e) => { e.stopPropagation(); onMoveDown() }} disabled={isLast}>
           <ChevronDown size={10} />
+        </button>
+        <button className="p-0.5 rounded hover:bg-surface-5 text-gray-600 hover:text-gray-300"
+          title="Dupliquer"
+          onClick={(e) => { e.stopPropagation(); onDuplicate() }}>
+          <Copy size={10} />
         </button>
         <button className="p-0.5 rounded hover:bg-surface-5 text-gray-600 hover:text-gray-300"
           onClick={(e) => { e.stopPropagation(); onToggle() }}>
@@ -392,7 +580,7 @@ function BlockItem({ block, selected, isFirst, isLast, onSelect, onToggle, onRem
 
 // ─── Block editor ────────────────────────────────────────────────────────────
 
-function HFBlockEditor({ block, section, onUpdate }) {
+function HFBlockEditor({ block, section, zoneWmm, zoneHmm, onUpdate }) {
   const { customFonts, addCustomFont, savedColors, addSavedColor } = useCatalogStore()
   const fontInputRef = useRef()
 
@@ -433,6 +621,32 @@ function HFBlockEditor({ block, section, onUpdate }) {
       </div>
 
       <div className="flex flex-col gap-5 p-4 overflow-y-auto">
+
+        {/* ── Position & Size (all block types) ──────────────── */}
+        <EditorSection title="Position & Taille">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="label mb-1 block">X</label>
+              <NumberInput value={block.x ?? 0} onChange={(v) => onUpdate({ x: v })}
+                min={0} max={zoneWmm} step={0.5} unit="mm" />
+            </div>
+            <div>
+              <label className="label mb-1 block">Y</label>
+              <NumberInput value={block.y ?? 0} onChange={(v) => onUpdate({ y: v })}
+                min={0} max={zoneHmm} step={0.5} unit="mm" />
+            </div>
+            <div>
+              <label className="label mb-1 block">Largeur</label>
+              <NumberInput value={block.w ?? zoneWmm} onChange={(v) => onUpdate({ w: v })}
+                min={2} max={zoneWmm * 2} step={0.5} unit="mm" />
+            </div>
+            <div>
+              <label className="label mb-1 block">Hauteur</label>
+              <NumberInput value={block.h ?? fallbackBlockH(block, zoneHmm)} onChange={(v) => onUpdate({ h: v })}
+                min={1} max={zoneHmm * 2} step={0.5} unit="mm" />
+            </div>
+          </div>
+        </EditorSection>
 
         {/* ── Static text block ─────────────────────────────── */}
         {block.type === 'static' && (
@@ -589,14 +803,9 @@ function HFBlockEditor({ block, section, onUpdate }) {
                 onChange={(src) => onUpdate({ directSrc: src })}
               />
             </EditorSection>
-            <EditorSection title="Dimensions">
+            <EditorSection title="Ajustement">
               <div>
-                <label className="label mb-1 block">Hauteur (%)</label>
-                <NumberInput value={block.heightPct ?? 80} onChange={(v) => onUpdate({ heightPct: v })}
-                  min={10} max={100} step={5} unit="%" />
-              </div>
-              <div className="mt-2">
-                <label className="label mb-1 block">Ajustement</label>
+                <label className="label mb-1 block">Mode</label>
                 <select className="input text-xs" value={block.fit ?? 'contain'}
                   onChange={(e) => onUpdate({ fit: e.target.value })}>
                   <option value="contain">Contenir</option>
@@ -706,6 +915,7 @@ function GeneralSettings({ section, config, setConfig }) {
         <EditorSection title="Marges personnalisees">
           <p className="text-[10px] text-gray-600 mb-2">
             Par defaut, les marges de la grille sont utilisees.
+            Les guides violets dans le canvas indiquent les marges.
           </p>
           <div className="flex gap-3">
             <div className="flex-1">
