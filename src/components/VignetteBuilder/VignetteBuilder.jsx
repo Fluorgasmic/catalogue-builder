@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { Plus, Type, Image, Tag, Minus, AlignLeft, ChevronLeft, ChevronRight, Eye, EyeOff, Layers } from 'lucide-react'
 import useCatalogStore from '../../store/catalogStore'
 import { calcVignetteDimensions, mmToCssPx } from '../../utils/layoutCalculator'
 import VignetteCanvas from './VignetteCanvas'
 import BlockList from './BlockList'
 import BlockEditor from './BlockEditor'
+import ZoomControl from '../UI/ZoomControl'
+import { useCtrlWheelZoom } from '../../hooks/useCtrlWheelZoom'
 import { nanoid } from './nanoid'
 
 // ─── Block type definitions ───────────────────────────────────────────────────
@@ -58,6 +60,10 @@ export default function VignetteBuilder() {
 
   const [previewIndex, setPreviewIndex] = useState(0)
   const [showGuides, setShowGuides] = useState(true)
+  const [canvasZoom, setCanvasZoom] = useState(100)
+  const canvasAreaRef = useRef(null)
+  const applyZoom = useCallback((updater) => setCanvasZoom(updater), [])
+  useCtrlWheelZoom(canvasAreaRef, applyZoom, { min: 50, max: 250 })
 
   const dims = useMemo(() => calcVignetteDimensions(grid, header, footer), [grid, header, footer])
   const previewRow = rawData[previewIndex] ?? null
@@ -119,32 +125,43 @@ export default function VignetteBuilder() {
             <span className="text-xs text-gray-600">({grid.columns}×{grid.rows} · {grid.pageFormat})</span>
           </div>
 
-          {/* Guide toggle */}
-          <button
-            className={`btn-ghost text-xs gap-1.5 ${showGuides ? 'text-accent' : ''}`}
-            onClick={() => setShowGuides(!showGuides)}
-          >
-            {showGuides ? <Eye size={12} /> : <EyeOff size={12} />}
-            Repères
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Zoom control */}
+            <ZoomControl zoom={canvasZoom} onChange={setCanvasZoom} min={50} max={250} />
+
+            <div className="w-px h-5 bg-surface-4" />
+
+            {/* Guide toggle */}
+            <button
+              className={`btn-ghost text-xs gap-1.5 ${showGuides ? 'text-accent' : ''}`}
+              onClick={() => setShowGuides(!showGuides)}
+            >
+              {showGuides ? <Eye size={12} /> : <EyeOff size={12} />}
+              Repères
+            </button>
+          </div>
         </div>
 
-        {/* Canvas area */}
-        <div className="flex-1 overflow-auto flex items-center justify-center p-8"
+        {/* Canvas area — m-auto centers the canvas but keeps the top
+            scroll-reachable when the zoomed canvas overflows the viewport */}
+        <div ref={canvasAreaRef} className="flex-1 overflow-auto flex p-8"
           style={{ background: 'repeating-linear-gradient(45deg,#161616 0,#161616 10px,#181818 10px,#181818 20px)' }}>
           {rawData.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 text-center">
+            <div className="m-auto flex flex-col items-center gap-3 text-center">
               <div className="p-4 bg-surface-3 rounded-2xl">
                 <Layers size={28} className="text-gray-600" />
               </div>
               <p className="text-sm text-gray-500">Importez des données pour voir l'aperçu live</p>
             </div>
           ) : (
-            <VignetteCanvas
-              dims={dims}
-              row={previewRow}
-              showGuides={showGuides}
-            />
+            <div className="m-auto">
+              <VignetteCanvas
+                dims={dims}
+                row={previewRow}
+                showGuides={showGuides}
+                zoom={canvasZoom}
+              />
+            </div>
           )}
         </div>
 

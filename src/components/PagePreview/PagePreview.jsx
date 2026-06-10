@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, BookOpen, Download } from 'lucide-react'
 import useCatalogStore from '../../store/catalogStore'
 import { usePagination } from '../../hooks/usePagination'
+import { useCtrlWheelZoom } from '../../hooks/useCtrlWheelZoom'
 import PageCanvas from './PageCanvas'
 import PageThumbnails from './PageThumbnails'
 import ExportModal from '../Export/ExportModal'
 
-const ZOOM_LEVELS = [25, 50, 75, 100, 125, 150]
+const ZOOM_LEVELS = [25, 50, 75, 100, 125, 150, 200, 250, 300]
 
 export default function PagePreview() {
   const {
@@ -19,16 +20,19 @@ export default function PagePreview() {
   const totalPages = pages.length
   const currentPage = pages[previewPage]
 
-  const zoomIdx = ZOOM_LEVELS.indexOf(previewZoom)
+  // Ctrl/Cmd + molette → zoom continu (la valeur peut sortir de ZOOM_LEVELS)
+  const canvasAreaRef = useRef(null)
+  const applyZoom = useCallback((updater) => {
+    const current = useCatalogStore.getState().previewZoom
+    useCatalogStore.getState().setPreviewZoom(updater(current))
+  }, [])
+  useCtrlWheelZoom(canvasAreaRef, applyZoom, { min: 25, max: 300 })
 
-  const zoomIn = () => {
-    const next = ZOOM_LEVELS[Math.min(zoomIdx + 1, ZOOM_LEVELS.length - 1)]
-    setPreviewZoom(next)
-  }
-  const zoomOut = () => {
-    const prev = ZOOM_LEVELS[Math.max(zoomIdx - 1, 0)]
-    setPreviewZoom(prev)
-  }
+  // Boutons : sauter au palier supérieur/inférieur le plus proche
+  const zoomIn = () =>
+    setPreviewZoom(ZOOM_LEVELS.find(z => z > previewZoom) ?? ZOOM_LEVELS[ZOOM_LEVELS.length - 1])
+  const zoomOut = () =>
+    setPreviewZoom([...ZOOM_LEVELS].reverse().find(z => z < previewZoom) ?? ZOOM_LEVELS[0])
 
   const goTo = (n) => {
     const clamped = Math.max(0, Math.min(n, totalPages - 1))
@@ -94,8 +98,8 @@ export default function PagePreview() {
 
           {/* Zoom controls + export */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <button className="btn-icon" onClick={zoomOut} disabled={zoomIdx === 0}>
+            <div className="flex items-center gap-1" title="Ctrl/Cmd + molette pour zoomer">
+              <button className="btn-icon" onClick={zoomOut} disabled={previewZoom <= ZOOM_LEVELS[0]}>
                 <ZoomOut size={16} />
               </button>
               <select
@@ -103,11 +107,15 @@ export default function PagePreview() {
                 value={previewZoom}
                 onChange={(e) => setPreviewZoom(parseInt(e.target.value))}
               >
+                {/* Valeur intermédiaire issue du zoom molette */}
+                {!ZOOM_LEVELS.includes(previewZoom) && (
+                  <option value={previewZoom}>{previewZoom}%</option>
+                )}
                 {ZOOM_LEVELS.map((z) => (
                   <option key={z} value={z}>{z}%</option>
                 ))}
               </select>
-              <button className="btn-icon" onClick={zoomIn} disabled={zoomIdx === ZOOM_LEVELS.length - 1}>
+              <button className="btn-icon" onClick={zoomIn} disabled={previewZoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}>
                 <ZoomIn size={16} />
               </button>
             </div>
@@ -123,13 +131,15 @@ export default function PagePreview() {
           </div>
         </div>
 
-        {/* ── Canvas area ─────────────────────────────────────── */}
+        {/* ── Canvas area — mx-auto keeps the left edge scroll-reachable
+               when the zoomed page is wider than the viewport ──────── */}
         <div
-          className="flex-1 overflow-auto flex items-start justify-center py-8 px-6"
+          ref={canvasAreaRef}
+          className="flex-1 overflow-auto flex items-start py-8 px-6"
           style={{ background: '#1a1a1a' }}
         >
           {currentPage ? (
-            <div className="page-enter">
+            <div className="page-enter mx-auto">
               <PageCanvas pageData={currentPage} zoom={previewZoom} totalPages={totalPages} />
             </div>
           ) : (

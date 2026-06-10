@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import {
   Type, Image as ImageIcon, Minus, AlignLeft, AlignCenter, AlignRight,
   Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Upload, X, Layers,
@@ -9,6 +9,8 @@ import { calcVignetteDimensions, mmToCssPx } from '../../utils/layoutCalculator'
 import { AnyBlock } from '../VignetteBuilder/blockRenderer'
 import NumberInput from '../UI/NumberInput'
 import Toggle from '../UI/Toggle'
+import ZoomControl from '../UI/ZoomControl'
+import { useCtrlWheelZoom } from '../../hooks/useCtrlWheelZoom'
 import ColorPickerInline from './ColorPickerInline'
 
 // ─── nanoid ──────────────────────────────────────────────────────────────────
@@ -118,6 +120,10 @@ export default function HeaderFooterBuilder() {
   } = useCatalogStore()
 
   const [section, setSection] = useState('header') // 'header' | 'footer'
+  const [canvasZoom, setCanvasZoom] = useState(100)
+  const previewAreaRef = useRef(null)
+  const applyZoom = useCallback((updater) => setCanvasZoom(updater), [])
+  useCtrlWheelZoom(previewAreaRef, applyZoom, { min: 50, max: 250 })
 
   const blocks = section === 'header' ? headerBlocks : footerBlocks
   const sectionConfig = section === 'header' ? header : footer
@@ -250,32 +256,39 @@ export default function HeaderFooterBuilder() {
               </span>
             </span>
           </div>
-          <Toggle
-            value={sectionConfig.enabled}
-            onChange={(v) => setConfig({ enabled: v })}
-            label={sectionConfig.enabled ? 'Active' : 'Desactive'}
-          />
+          <div className="flex items-center gap-3">
+            <ZoomControl zoom={canvasZoom} onChange={setCanvasZoom} min={50} max={250} />
+            <div className="w-px h-5 bg-surface-4" />
+            <Toggle
+              value={sectionConfig.enabled}
+              onChange={(v) => setConfig({ enabled: v })}
+              label={sectionConfig.enabled ? 'Active' : 'Desactive'}
+            />
+          </div>
         </div>
 
-        {/* Preview area */}
-        <div className="flex-1 overflow-auto flex items-center justify-center p-8"
+        {/* Preview area — m-auto keeps the top scroll-reachable when zoomed */}
+        <div ref={previewAreaRef} className="flex-1 overflow-auto flex p-8"
           style={{ background: 'repeating-linear-gradient(45deg,#161616 0,#161616 10px,#181818 10px,#181818 20px)' }}>
 
           {sectionConfig.enabled ? (
-            <HFPreviewCanvas
-              blocks={blocks}
-              sectionConfig={sectionConfig}
-              section={section}
-              dims={dims}
-              grid={grid}
-              zoneWmm={zoneWmm}
-              zoneHmm={zoneHmm}
-              selectedBlockId={selectedHFBlockId}
-              onSelectBlock={setSelectedHFBlock}
-              onUpdateBlock={(id, patch) => handleUpdate(id, patch)}
-            />
+            <div className="m-auto">
+              <HFPreviewCanvas
+                blocks={blocks}
+                sectionConfig={sectionConfig}
+                section={section}
+                dims={dims}
+                grid={grid}
+                zoneWmm={zoneWmm}
+                zoneHmm={zoneHmm}
+                zoom={canvasZoom}
+                selectedBlockId={selectedHFBlockId}
+                onSelectBlock={setSelectedHFBlock}
+                onUpdateBlock={(id, patch) => handleUpdate(id, patch)}
+              />
+            </div>
           ) : (
-            <div className="flex flex-col items-center gap-3 text-center">
+            <div className="m-auto flex flex-col items-center gap-3 text-center">
               <div className="p-4 bg-surface-3 rounded-2xl">
                 <Layers size={28} className="text-gray-600" />
               </div>
@@ -328,14 +341,14 @@ export default function HeaderFooterBuilder() {
 
 function HFPreviewCanvas({
   blocks, sectionConfig, section, dims, grid,
-  zoneWmm, zoneHmm,
+  zoneWmm, zoneHmm, zoom = 100,
   selectedBlockId, onSelectBlock, onUpdateBlock,
 }) {
   const { imageBasePath, imageColumn, imageExtension } = useCatalogStore()
   const canvasRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
 
-  const CANVAS_WIDTH = 580
+  const CANVAS_WIDTH = 580 * (zoom / 100)
   const pxPerMm = CANVAS_WIDTH / zoneWmm
   const canvasH = zoneHmm * pxPerMm
   const scale = pxPerMm / (96 / 25.4) // AnyBlock font/padding scale
@@ -475,8 +488,9 @@ function HFPreviewCanvas({
               }}
               onPointerDown={(e) => startDrag(e, block, 'move')}
             >
-              {/* Block content */}
-              <div className="w-full h-full overflow-hidden">
+              {/* Block content — no clip: must match the page output, where a
+                  text taller than the block box paints fully */}
+              <div className="w-full h-full">
                 <AnyBlock
                   block={block}
                   row={{}}

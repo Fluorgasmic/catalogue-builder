@@ -176,7 +176,7 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
         }}
       >
         {cells.map(({ row: r, col: c, product }, i) => (
-          <div key={`${r}-${c}`} className="overflow-hidden">
+          <div key={`${r}-${c}`}>
             {product ? (
               <VignettePlaceholder
                 row={product}
@@ -350,7 +350,6 @@ function HeaderBlocksRenderer({ blocks, top, height, pageWpx, padLeft, padRight,
           right: 0,
           top,
           height,
-          overflow: 'hidden',
           backgroundColor: bgColor === 'transparent' ? undefined : bgColor,
         }}
       >
@@ -367,7 +366,8 @@ function HeaderBlocksRenderer({ blocks, top, height, pageWpx, padLeft, padRight,
               top: by,
               width: bw,
               height: bh ?? 'auto',
-              overflow: 'hidden',
+              // pas d'overflow:hidden : un texte légèrement plus haut que la
+              // boîte du bloc (police à grandes métriques) ne doit pas être rasé
             }}>
               <AnyBlock
                 block={block}
@@ -438,7 +438,6 @@ function FooterBlocksRenderer({ blocks, bottom, height, pageWpx, padLeft, padRig
           right: 0,
           bottom,
           height,
-          overflow: 'hidden',
           backgroundColor: bgColor === 'transparent' ? undefined : bgColor,
         }}
       >
@@ -455,7 +454,8 @@ function FooterBlocksRenderer({ blocks, bottom, height, pageWpx, padLeft, padRig
               top: by,
               width: bw,
               height: bh ?? 'auto',
-              overflow: 'hidden',
+              // pas d'overflow:hidden : un texte légèrement plus haut que la
+              // boîte du bloc (police à grandes métriques) ne doit pas être rasé
             }}>
               <AnyBlock
                 block={block}

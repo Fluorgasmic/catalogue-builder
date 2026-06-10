@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Download, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { jsPDF } from 'jspdf'
-import html2canvas from 'html2canvas'
+import { toCanvas, getFontEmbedCSS } from 'html-to-image'
 import useCatalogStore from '../../store/catalogStore'
 import { buildFontFaceCSS } from '../FontLoader'
 import { usePagination } from '../../hooks/usePagination'
@@ -57,6 +57,14 @@ export default function ExportModal({ onClose }) {
         compress: true,
       })
 
+      // Embed every webfont (Google Fonts + polices custom) as data: URLs —
+      // computed once, reused for every page. The SVG renderer cannot fetch
+      // external font files, so anything not embedded falls back to a system
+      // font with different metrics.
+      const firstPageEl = offscreenRef.current?.querySelector('[data-export-page="0"]')
+      const scannedFontCSS = firstPageEl ? await getFontEmbedCSS(firstPageEl) : ''
+      const fontEmbedCSS = scannedFontCSS + '\n' + buildFontFaceCSS(customFonts)
+
       for (let i = 0; i < pages.length; i++) {
         if (abortRef.current) break
 
@@ -66,36 +74,18 @@ export default function ExportModal({ onClose }) {
         const el = offscreenRef.current?.querySelector(`[data-export-page="${i}"]`)
         if (!el) continue
 
-        // Wait for all images in this page to finish loading
+        // Wait for all images and fonts in this page to finish loading
         await waitForImages(el)
+        await document.fonts.ready
 
-        const canvas = await html2canvas(el, {
-          scale: zoom / 100,
-          useCORS: true,
-          allowTaint: false,
+        // html-to-image renders via SVG <foreignObject>: the browser's own
+        // layout engine draws the page, so text metrics, line-heights and
+        // ellipsis are pixel-identical to the on-screen preview (html2canvas
+        // re-implemented text drawing and clipped descenders/bottoms).
+        const canvas = await toCanvas(el, {
+          pixelRatio: zoom / 100,
           backgroundColor: '#ffffff',
-          logging: false,
-          imageTimeout: 10000,
-          // Override "viewport" with the element's own dimensions so html2canvas
-          // never clips content based on screen/window size (critical for off-screen rendering)
-          windowWidth: el.scrollWidth,
-          windowHeight: el.scrollHeight,
-          x: 0,
-          y: 0,
-          scrollX: 0,
-          scrollY: 0,
-          onclone: (doc, clone) => {
-            // Ensure fonts and layout are stable in the clone
-            clone.querySelectorAll('img').forEach(img => {
-              img.crossOrigin = 'anonymous'
-            })
-            // Inject custom @font-face rules into the cloned document
-            if (customFonts.length > 0) {
-              const styleEl = doc.createElement('style')
-              styleEl.textContent = buildFontFaceCSS(customFonts)
-              doc.head.appendChild(styleEl)
-            }
-          },
+          fontEmbedCSS,
         })
 
         const imgData = canvas.toDataURL('image/jpeg', quality === 'print' ? 0.98 : 0.92)
@@ -115,7 +105,7 @@ export default function ExportModal({ onClose }) {
       setErrorMsg(err.message ?? 'Erreur inconnue')
       setPhase('error')
     }
-  }, [pages, dims, grid, zoom, quality, projectName])
+  }, [pages, dims, grid, zoom, quality, projectName, customFonts])
 
   const handleCancel = () => {
     abortRef.current = true

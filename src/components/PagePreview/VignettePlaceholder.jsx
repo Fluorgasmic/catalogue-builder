@@ -70,20 +70,28 @@ function BlockVignette({ wPx, hPx, scale, row, blocks, imageBasePath, imageColum
   const absBlocks = blocks.filter(b => b.position === 'absolute' && b.visible !== false)
   const mmToPx = (mm) => mm * scale
 
-  // Only render flow blocks that fully fit within the vignette height
+  // Only render flow blocks that fully fit within the vignette height.
+  // Use a scale-aware safety margin: at higher export zoom (scale 2–3) the
+  // accumulated sub-pixel rounding across blocks can exceed 2 px, leading to
+  // the bottom of the last visible block being clipped by the container.
+  const safetyMargin = Math.max(4, Math.ceil(scale * 3))
   const flowBlocks = []
   let usedH = 0
   for (const block of allFlow) {
     const bh = estimateBlockHeight(block, hPx, scale)
-    if (usedH + bh > hPx - 2) break   // conservative: 2px safety margin
+    if (usedH + bh > hPx - safetyMargin) break
     flowBlocks.push(block)
     usedH += bh
   }
 
   return (
-    <div className="relative bg-white overflow-hidden" style={{ width: wPx, height: hPx }}>
+    <div className="relative bg-white" style={{ width: wPx, height: hPx }}>
 
-      {/* Flow blocks — clipped to vignette height */}
+      {/* Flow blocks — no overflow clipping: each block type clips its own
+          content internally, and the estimation loop above already excludes
+          blocks that won't fit.  Removing the outer overflow:hidden prevents
+          the last visible block from being cropped when html2canvas renders
+          text a pixel or two taller than the JS estimate. */}
       <div className="flex flex-col" style={{ width: wPx }}>
         {flowBlocks.map(block => (
           <div key={block.id} className="shrink-0">
@@ -96,7 +104,10 @@ function BlockVignette({ wPx, hPx, scale, row, blocks, imageBasePath, imageColum
         ))}
       </div>
 
-      {/* Absolute blocks */}
+      {/* Absolute blocks — no overflow clipping so blocks whose computed
+          bottom sits a fraction of a pixel beyond the vignette boundary
+          (due to rounding at different export zoom levels) are not cropped.
+          Each block's own AnyBlock already handles its internal overflow. */}
       {absBlocks.map(block => (
         <div
           key={block.id}

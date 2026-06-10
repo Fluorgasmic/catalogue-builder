@@ -10,7 +10,7 @@ function pxDeltaToMm(px, canvasWidthPx, vignetteWmm) {
   return (px / canvasWidthPx) * vignetteWmm
 }
 
-export default function VignetteCanvas({ dims, row, showGuides }) {
+export default function VignetteCanvas({ dims, row, showGuides, zoom = 100 }) {
   const {
     vignetteBlocks, selectedBlockId, setSelectedBlock,
     updateBlock, imageBasePath, imageColumn, imageExtension,
@@ -21,7 +21,7 @@ export default function VignetteCanvas({ dims, row, showGuides }) {
   // dragState: { blockId, mode:'move'|'resize', handle:'se'|'e'|'s'|'sw'|'w'|'nw'|'n'|'ne',
   //              startX, startY, origX, origY, origW, origH }
 
-  const wPx = CANVAS_WIDTH_PX
+  const wPx = CANVAS_WIDTH_PX * (zoom / 100)
   const scale = wPx / mmToCssPx(dims.vignetteWidth, 100)  // px/mm scale at display size
   const hPx = mmToCssPx(dims.vignetteHeight, 100) * scale
 

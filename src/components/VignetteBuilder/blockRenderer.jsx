@@ -81,6 +81,13 @@ export function TextBlockContent({ block, row, vignetteWpx, vignetteHpx, scale }
   const borderRadius = hasBg ? (block.bgBorderRadius ?? 0) * scale : 0
   const widthMode   = block.widthMode ?? 'full'
 
+  // Vertical paint room for fonts whose glyphs exceed the 1.4em line box
+  // (common with custom display fonts): without it, the fixed-height clip box
+  // shaves descenders and letter bottoms. Single-line only — on multi-line
+  // blocks extra room would reveal the top of the line after maxLines.
+  // The layout footprint stays exactly blockH; only the clip box grows.
+  const overshoot = (block.maxLines ?? 1) === 1 ? Math.ceil(fontSize * 0.45) : 0
+
   // ── Vertical alignment ──
   const vAlign = block.vAlign ?? 'top'
 
@@ -154,21 +161,30 @@ export function TextBlockContent({ block, row, vignetteWpx, vignetteHpx, scale }
     )
   }
 
-  // ── "Full width" mode (default) — single div, no nesting ──────────────
+  // ── "Full width" mode (default) ────────────────────────────────────────
+  // Outer div = layout footprint (blockH) and background band.
+  // Inner div = text with a clip box extended by `overshoot` above/below so
+  // tall glyphs paint fully; the line box lands at the same position as a
+  // single div would (top: -overshoot compensated by paddingTop +overshoot).
   return (
-    <div style={{
-      ...baseStyle,
-      height:          blockH,
-      width:           '100%',
-      flexShrink:      0,
-      paddingTop:      padTop,
-      paddingBottom:   padBot,
-      paddingLeft:     paddingHpx,
-      paddingRight:    paddingHpx,
-      backgroundColor: hasBg ? block.bgColor : undefined,
-      borderRadius,
-    }}>
-      {displayContent}
+    <div style={{ position: 'relative', height: blockH, width: '100%', flexShrink: 0 }}>
+      {hasBg && (
+        <div style={{ position: 'absolute', inset: 0, backgroundColor: block.bgColor, borderRadius }} />
+      )}
+      <div style={{
+        ...baseStyle,
+        position:      'absolute',
+        left:          0,
+        right:         0,
+        top:           -overshoot,
+        height:        blockH + overshoot * 2,
+        paddingTop:    padTop + overshoot,
+        paddingBottom: padBot + overshoot,
+        paddingLeft:   paddingHpx,
+        paddingRight:  paddingHpx,
+      }}>
+        {displayContent}
+      </div>
     </div>
   )
 }
