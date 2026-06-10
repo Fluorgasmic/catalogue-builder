@@ -26,10 +26,12 @@
  * la sécurité repose sur les comptes créés dans la console.
  */
 export const firebaseConfig = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  appId: '',
+  apiKey: 'AIzaSyBzGx4c3U-ZFSV0vpdYQ0BRTH7Djw9bVe8',
+  authDomain: 'product-catalogue-maker.firebaseapp.com',
+  projectId: 'product-catalogue-maker',
+  storageBucket: 'product-catalogue-maker.firebasestorage.app',
+  messagingSenderId: '566028100433',
+  appId: '1:566028100433:web:c39af306acd6eef770a970',
 }
 
 /** Authentification activée seulement si la config est renseignée. */
