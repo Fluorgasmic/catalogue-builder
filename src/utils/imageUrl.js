@@ -1,40 +1,54 @@
-import { getLocalImageUrlSync, getLocalImageUrl, hasLocalImages } from './localImages'
+import { get as getProvider } from '../imageSources/registry'
+import { getActiveConnection } from '../imageSources/activeConnection'
 
 /**
- * Build a proper image URL from a column value + base path + extension.
+ * Construit une URL d'image affichable à partir de la valeur d'une colonne.
  *
- * Supports three modes:
- *  1. __local__  — resolve from the browser's File System Access API (no server)
- *  2. http(s):// — use the URL directly
- *  3. Other      — combine basePath + filename + extension (via image server)
+ * Rétrocompatible : `basePath` (2e argument) peut être :
+ *   - '__local__'      → provider local, résolu via la connexion active
+ *   - '__<providerId>__' → tout autre provider (gdrive, onedrive…), connexion active
+ *   - une URL http(s)  → provider http (base URL)
+ *   - '' / null        → aucune source configurée
+ *
+ * Si la valeur de colonne est déjà une URL absolue, elle est renvoyée telle quelle.
  */
 export function buildImageUrl(colValue, basePath, extension) {
   if (!colValue) return null
-
   const val = String(colValue).trim()
+  if (!val) return null
 
-  // If the column value is already a full HTTP URL, use it directly
+  // URL absolue directement dans la cellule → utilisée telle quelle
   if (val.startsWith('http://') || val.startsWith('https://')) return val
 
-  // Extract just the filename (strip any leading path — works for Unix and Windows)
-  const filename = val.replace(/^.*[\\/]/, '')
-  const hasExt = /\.[a-zA-Z0-9]{2,5}$/.test(filename)
-  const fullFilename = filename + (hasExt ? '' : extension)
+  const providerId = resolveProviderId(basePath)
 
-  // ── Local mode: resolve from the scanned folder ──
-  if (basePath === '__local__') {
-    // Try synchronous cache first (renders instantly if already loaded)
-    const cached = getLocalImageUrlSync(fullFilename)
-    if (cached) return cached
-    // If not cached yet, trigger async load and return a placeholder.
-    // The component's onError/useEffect will retry once loaded.
-    if (hasLocalImages()) {
-      getLocalImageUrl(fullFilename) // fire-and-forget: populates cache
-    }
-    return null // will show missing-image placeholder until cache is warm
+  // Provider avec connexion active (local, gdrive, onedrive…)
+  if (providerId && providerId !== 'http') {
+    const provider = getProvider(providerId)
+    const conn = getActiveConnection()
+    if (!provider || !conn) return null
+    if (provider.resolveUrlSync) return provider.resolveUrlSync(conn, val, extension)
+    // Pas de variante sync : déclenche l'async et renvoie null en attendant.
+    provider.resolveUrl?.(conn, val, extension)
+    return null
   }
 
-  // ── Server / HTTP mode ──
-  const base = basePath.endsWith('/') ? basePath : basePath + '/'
-  return base + fullFilename
+  // Provider http : basePath EST la base URL.
+  if (typeof basePath === 'string' && basePath && basePath !== '') {
+    const filename = val.replace(/^.*[\\/]/, '')
+    const hasExt = /\.[a-zA-Z0-9]{2,5}$/.test(filename)
+    const ext = extension && !extension.startsWith('.') ? '.' + extension : (extension ?? '')
+    const fullFilename = filename + (hasExt ? '' : ext)
+    const base = basePath.endsWith('/') ? basePath : basePath + '/'
+    return base + fullFilename
+  }
+
+  return null
+}
+
+/** Extrait un providerId d'un basePath de la forme '__id__', sinon null. */
+function resolveProviderId(basePath) {
+  if (typeof basePath !== 'string') return null
+  const m = basePath.match(/^__([a-z0-9]+)__$/i)
+  return m ? m[1] : null
 }

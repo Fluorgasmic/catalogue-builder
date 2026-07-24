@@ -1,27 +1,35 @@
-import { useState, useEffect, useCallback } from 'react'
-import { hasLocalImages } from '../utils/localImages'
+import { useState, useEffect } from 'react'
+import { getActiveConnection, subscribeConnection } from '../imageSources/activeConnection'
 
 /**
- * Hook that triggers a re-render when local images are being lazily resolved.
- * Place this in components that display product images (VignettePlaceholder, VignetteCanvas).
+ * Déclenche un re-render pendant la résolution paresseuse des images.
+ * À placer dans les composants affichant des images produit
+ * (VignettePlaceholder, VignetteCanvas…).
  *
- * When imageBasePath is '__local__', the first render may get null URLs
- * from buildImageUrl (cache miss). This hook retries after a short delay
- * to pick up the newly-cached blob URLs.
+ * Pour toute source à résolution async (dossier local, Drive, OneDrive…),
+ * le premier rendu peut recevoir des URLs null (cache froid). Ce hook :
+ *   1. re-render quand une connexion s'active/change (abonnement),
+ *   2. retente après 300ms et 1s pour capter les URLs mises en cache.
  */
 export function useLocalImageRefresh(imageBasePath, dependencyKey) {
-  const [refreshCount, setRefreshCount] = useState(0)
+  const [, setRefreshCount] = useState(0)
 
   useEffect(() => {
-    if (imageBasePath !== '__local__' || !hasLocalImages()) return
+    const bump = () => setRefreshCount((c) => c + 1)
 
-    // Retry after 300ms to pick up async cache fills
-    const t1 = setTimeout(() => setRefreshCount(c => c + 1), 300)
-    // And once more after 1s for slower disks
-    const t2 = setTimeout(() => setRefreshCount(c => c + 1), 1000)
+    // Re-render dès qu'une source se (re)connecte
+    const unsub = subscribeConnection(bump)
 
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    // Retries seulement pour les sources à résolution async (non http direct)
+    const isAsyncSource = typeof imageBasePath === 'string' && imageBasePath.startsWith('__')
+    let t1, t2
+    if (isAsyncSource && getActiveConnection()) {
+      t1 = setTimeout(bump, 300)
+      t2 = setTimeout(bump, 1000)
+    }
+
+    return () => { unsub(); clearTimeout(t1); clearTimeout(t2) }
   }, [imageBasePath, dependencyKey])
 
-  return refreshCount
+  return 0
 }

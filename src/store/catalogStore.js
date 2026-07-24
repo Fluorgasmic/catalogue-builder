@@ -39,6 +39,25 @@ const DEFAULT_FOOTER = {
 
 const DEFAULT_VIGNETTE_BLOCKS = []
 
+// Dérive une valeur "basePath" (compat rendu) depuis la source d'images.
+//  - provider 'local'  → '__local__'  (résolu via la connexion active)
+//  - provider 'http'   → la baseUrl
+//  - autres providers  → '__' + providerId + '__'  (résolu via connexion active)
+function deriveBasePath(imageSource) {
+  if (!imageSource?.providerId) return ''
+  if (imageSource.providerId === 'http') return imageSource.config?.baseUrl ?? ''
+  return `__${imageSource.providerId}__`
+}
+
+// Migration douce : ancien imageBasePath (string) → nouvel imageSource (objet).
+function migrateImageSource(imageBasePath) {
+  if (imageBasePath === '__local__') return { providerId: 'local', config: {} }
+  if (typeof imageBasePath === 'string' && imageBasePath && imageBasePath !== 'http://localhost:3001/') {
+    return { providerId: 'http', config: { baseUrl: imageBasePath } }
+  }
+  return { providerId: 'http', config: { baseUrl: '' } }
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 const useCatalogStore = create(
@@ -53,9 +72,19 @@ const useCatalogStore = create(
       columns: [],                   // column names detected
       fileName: null,
       groupColumn: null,             // column used for grouping (section breaks)
-      imageBasePath: 'http://localhost:3001/',
       imageColumn: null,             // column used to build image filename
       imageExtension: '.jpg',
+
+      // ── Source d'images (architecture de providers) ───────────
+      // providerId: 'local' | 'http' | 'gdrive' | 'onedrive' | …
+      // config: sérialisée, persistée (baseUrl, folderName, mapping…) SANS token.
+      imageSource: { providerId: 'http', config: { baseUrl: '' } },
+      setImageSource: (partial) => set((s) => ({ imageSource: { ...s.imageSource, ...partial } })),
+      setImageSourceConfig: (config) => set((s) => ({ imageSource: { ...s.imageSource, config: { ...s.imageSource.config, ...config } } })),
+
+      // Dérivé pour compat des composants de rendu : renvoie une valeur "basePath"
+      // interprétable par buildImageUrl ('__local__', une URL, ou '').
+      imageBasePath: '',
 
       setData: ({ rows, columns, fileName }) => set({
         rawData: rows,
@@ -66,9 +95,11 @@ const useCatalogStore = create(
       }),
 
       setGroupColumn: (col) => set({ groupColumn: col }),
-      setImageBasePath: (path) => set({ imageBasePath: path }),
       setImageColumn: (col) => set({ imageColumn: col }),
       setImageExtension: (ext) => set({ imageExtension: ext }),
+
+      // Recalcule imageBasePath depuis imageSource (appelé quand la source change).
+      syncImageBasePath: () => set((s) => ({ imageBasePath: deriveBasePath(s.imageSource) })),
 
       clearData: () => set({ rawData: [], columns: [], fileName: null }),
 
@@ -91,6 +122,7 @@ const useCatalogStore = create(
       })),
       reorderBlocks: (blocks) => set({ vignetteBlocks: blocks }),
       setSelectedBlock: (id) => set({ selectedBlockId: id }),
+      clearBlocks: () => set({ vignetteBlocks: [], selectedBlockId: null }),
 
       // ── Header / Footer ───────────────────────────────────────
       header: DEFAULT_HEADER,
@@ -148,7 +180,7 @@ const useCatalogStore = create(
       exportProject: () => {
         const s = get()
         return JSON.stringify({
-          version: 1,
+          version: 2,
           projectName: s.projectName,
           grid: s.grid,
           vignetteBlocks: s.vignetteBlocks,
@@ -157,7 +189,7 @@ const useCatalogStore = create(
           header: s.header,
           footer: s.footer,
           groupColumn: s.groupColumn,
-          imageBasePath: s.imageBasePath,
+          imageSource: s.imageSource,
           imageColumn: s.imageColumn,
           imageExtension: s.imageExtension,
           savedColors: s.savedColors,
@@ -167,6 +199,7 @@ const useCatalogStore = create(
       importProject: (json) => {
         try {
           const data = JSON.parse(json)
+          const imageSource = data.imageSource ?? migrateImageSource(data.imageBasePath)
           set({
             projectName: data.projectName ?? 'Importé',
             grid: data.grid ?? DEFAULT_GRID,
@@ -176,7 +209,8 @@ const useCatalogStore = create(
             header: data.header ?? DEFAULT_HEADER,
             footer: data.footer ?? DEFAULT_FOOTER,
             groupColumn: data.groupColumn ?? null,
-            imageBasePath: data.imageBasePath ?? 'http://localhost:3001/',
+            imageSource,
+            imageBasePath: deriveBasePath(imageSource),
             imageColumn: data.imageColumn ?? null,
             imageExtension: data.imageExtension ?? '.jpg',
             savedColors: data.savedColors ?? [],
@@ -199,10 +233,18 @@ const useCatalogStore = create(
         savedColors: s.savedColors,
         customFonts: s.customFonts,
         projectName: s.projectName,
-        imageBasePath: s.imageBasePath,
+        imageSource: s.imageSource,
         imageExtension: s.imageExtension,
         groupColumn: s.groupColumn,
       }),
+      // Migration au réhydratage + recalcul du basePath dérivé.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        if (!state.imageSource && state.imageBasePath !== undefined) {
+          state.imageSource = migrateImageSource(state.imageBasePath)
+        }
+        state.imageBasePath = deriveBasePath(state.imageSource)
+      },
     }
   )
 )

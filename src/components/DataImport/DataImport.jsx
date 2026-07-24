@@ -4,12 +4,11 @@ import { parseFile } from '../../utils/excelParser'
 import useCatalogStore from '../../store/catalogStore'
 import Select from '../UI/Select'
 import Divider from '../UI/Divider'
-import ImageServerPanel from './ImageServerPanel'
-import LocalImagePanel from './LocalImagePanel'
+import ImageSourcePanel from './ImageSourcePanel'
 
 export default function DataImport() {
-  const { rawData, columns, fileName, groupColumn, imageBasePath, imageColumn, imageExtension,
-          setData, setGroupColumn, setImageBasePath, setImageColumn, setImageExtension, clearData } = useCatalogStore()
+  const { rawData, columns, fileName, groupColumn, imageColumn, imageExtension,
+          setData, setGroupColumn, setImageColumn, setImageExtension, clearData } = useCatalogStore()
 
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -184,9 +183,8 @@ export default function DataImport() {
             </div>
           </div>
 
-          {/* ── Image source panels ─────────────────────────────── */}
-          <LocalImagePanel />
-          <ImageServerPanel />
+          {/* ── Image source (dossier local, cloud, URL…) ────────── */}
+          <ImageSourcePanel />
 
           <Divider />
 
