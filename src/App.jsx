@@ -11,6 +11,7 @@ import PagePreview from './components/PagePreview/PagePreview'
 import VignetteBuilder from './components/VignetteBuilder/VignetteBuilder'
 import HeaderFooterBuilder from './components/HeaderFooter/HeaderFooterBuilder'
 import ExportModal from './components/Export/ExportModal'
+import WorkflowStepper from './components/Onboarding/WorkflowStepper'
 import { usePagination } from './hooks/usePagination'
 
 // ─── Sidebar nav items ────────────────────────────────────────────────────────
@@ -96,6 +97,9 @@ export default function App() {
             <NavItem key={item.id} item={item} active={activeTab === item.id} onClick={() => setActiveTab(item.id)} />
           ))}
         </nav>
+
+        {/* Workflow stepper */}
+        <WorkflowStepper />
 
         {/* Stats */}
         {rawData.length > 0 && (
