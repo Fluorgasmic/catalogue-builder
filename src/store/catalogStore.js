@@ -198,7 +198,7 @@ const useCatalogStore = create(
 
       importProject: (json) => {
         try {
-          const data = JSON.parse(json)
+          const data = typeof json === 'string' ? JSON.parse(json) : json
           const imageSource = data.imageSource ?? migrateImageSource(data.imageBasePath)
           set({
             projectName: data.projectName ?? 'Importé',
@@ -220,6 +220,22 @@ const useCatalogStore = create(
           return false
         }
       },
+
+      // Réinitialise l'état d'édition pour un nouveau projet vierge.
+      // Conserve savedColors et customFonts (préférences transverses).
+      resetProject: () => set({
+        activeTab: 'import',
+        rawData: [], columns: [], fileName: null, groupColumn: null,
+        imageColumn: null, imageExtension: '.jpg',
+        imageSource: { providerId: 'http', config: { baseUrl: '' } },
+        imageBasePath: '',
+        grid: DEFAULT_GRID,
+        vignetteBlocks: [], selectedBlockId: null,
+        headerBlocks: [], footerBlocks: [], selectedHFBlockId: null,
+        header: DEFAULT_HEADER, footer: DEFAULT_FOOTER,
+        previewPage: 0,
+        projectName: 'Sans titre',
+      }),
     }),
     {
       name: 'catalogue-builder-v1',

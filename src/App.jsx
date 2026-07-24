@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Database, LayoutGrid, Eye, BookOpen, Download,
-  FolderOpen, Save, Layers
+  FolderOpen, Save, Layers, ArrowLeft, Cloud, CloudOff, Check
 } from 'lucide-react'
+import { authEnabled } from './firebaseConfig'
 import useCatalogStore from './store/catalogStore'
+import useProjectsStore from './store/projectsStore'
 import FontLoader from './components/FontLoader'
 import DataImport from './components/DataImport/DataImport'
 import GridSettings from './components/GridSettings/GridSettings'
@@ -12,6 +14,7 @@ import VignetteBuilder from './components/VignetteBuilder/VignetteBuilder'
 import HeaderFooterBuilder from './components/HeaderFooter/HeaderFooterBuilder'
 import ExportModal from './components/Export/ExportModal'
 import WorkflowStepper from './components/Onboarding/WorkflowStepper'
+import Dashboard from './components/Dashboard/Dashboard'
 import { usePagination } from './hooks/usePagination'
 
 // ─── Sidebar nav items ────────────────────────────────────────────────────────
@@ -24,11 +27,53 @@ const NAV = [
   { id: 'preview',  icon: Eye,         label: 'Aperçu',    group: 'view'  },
 ]
 
+// ─── Routeur racine : Dashboard (multi-projets cloud) ⇆ Éditeur ───────────────
+// Sans auth (accès libre), on garde le flux mono-projet localStorage historique.
+
 export default function App() {
+  const view = useProjectsStore((s) => s.view)
+  const uid = useProjectsStore((s) => s.uid)
+
+  if (authEnabled && uid && view === 'dashboard') {
+    return <Dashboard />
+  }
+  return <Editor />
+}
+
+function Editor() {
   const { activeTab, setActiveTab, rawData, columns, grid, groupColumn, projectName, setProjectName, exportProject, importProject } = useCatalogStore()
 
   const [showExport, setShowExport] = useState(false)
   const pages = usePagination(rawData, columns, grid, groupColumn)
+
+  // ── Auto-save cloud (debounce) ──────────────────────────────
+  const { uid, currentId, save, backToDashboard } = useProjectsStore()
+  const cloudActive = authEnabled && uid && currentId
+  const [saveState, setSaveState] = useState('idle') // 'idle' | 'saving' | 'saved'
+  const saveTimer = useRef(null)
+  const firstRun = useRef(true)
+
+  // Abonne-toi aux changements persistés du catalogStore et sauvegarde 2s après.
+  useEffect(() => {
+    if (!cloudActive) return
+    const unsub = useCatalogStore.subscribe(() => {
+      if (firstRun.current) { firstRun.current = false; return }
+      setSaveState('saving')
+      clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(async () => {
+        try {
+          await save({
+            name: useCatalogStore.getState().projectName,
+            data: JSON.parse(useCatalogStore.getState().exportProject()),
+            productCount: useCatalogStore.getState().rawData.length,
+          })
+          setSaveState('saved')
+          setTimeout(() => setSaveState('idle'), 1500)
+        } catch { setSaveState('idle') }
+      }, 2000)
+    })
+    return () => { unsub(); clearTimeout(saveTimer.current) }
+  }, [cloudActive, save])
 
   const handleSave = () => {
     const json = exportProject()
@@ -70,6 +115,24 @@ export default function App() {
             <p className="text-[10px] text-gray-600">Builder v0.1</p>
           </div>
         </div>
+
+        {/* Retour dashboard + état sauvegarde cloud */}
+        {cloudActive && (
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-surface-4">
+            <button
+              className="btn-icon !p-1.5 text-gray-500 hover:text-gray-200"
+              onClick={backToDashboard}
+              title="Retour à mes catalogues"
+            >
+              <ArrowLeft size={14} />
+            </button>
+            <span className="flex-1 text-[10px] flex items-center gap-1.5 justify-end">
+              {saveState === 'saving' && <><Cloud size={11} className="text-accent animate-pulse" /><span className="text-gray-500">Enregistrement…</span></>}
+              {saveState === 'saved' && <><Check size={11} className="text-emerald-400" /><span className="text-emerald-500">Enregistré</span></>}
+              {saveState === 'idle' && <><Cloud size={11} className="text-gray-700" /><span className="text-gray-700">Synchronisé</span></>}
+            </span>
+          </div>
+        )}
 
         {/* Project name */}
         <div className="px-3 py-2 border-b border-surface-4">

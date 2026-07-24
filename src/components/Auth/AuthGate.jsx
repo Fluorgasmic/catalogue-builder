@@ -1,21 +1,12 @@
 import { useState, useEffect } from 'react'
 import { BookOpen, Lock, Loader2, LogOut } from 'lucide-react'
-import { firebaseConfig, authEnabled } from '../../firebaseConfig'
+import { authEnabled } from '../../firebaseConfig'
+import { getFirebase } from '../../lib/firebase'
+import useProjectsStore from '../../store/projectsStore'
 
-// Firebase n'est initialisé que si la config est renseignée — sinon l'app
-// reste en accès libre et le SDK n'est même pas chargé.
-let authPromise = null
+// Firebase (app + auth + firestore) est initialisé une seule fois via lib/firebase.
 function getFirebaseAuth() {
-  if (!authPromise) {
-    authPromise = Promise.all([
-      import('firebase/app'),
-      import('firebase/auth'),
-    ]).then(([{ initializeApp }, authMod]) => {
-      const app = initializeApp(firebaseConfig)
-      return { auth: authMod.getAuth(app), mod: authMod }
-    })
-  }
-  return authPromise
+  return getFirebase().then(({ auth, authMod }) => ({ auth, mod: authMod }))
 }
 
 /**
@@ -31,10 +22,14 @@ export default function AuthGate({ children }) {
   useEffect(() => {
     if (!authEnabled) return
     let unsub = () => {}
+    const setUid = useProjectsStore.getState().setUid
+    const resetProjects = useProjectsStore.getState().reset
     getFirebaseAuth().then(({ auth, mod }) => {
       unsub = mod.onAuthStateChanged(auth, (user) => {
         setUserEmail(user?.email ?? null)
         setStatus(user ? 'open' : 'signedOut')
+        setUid(user?.uid ?? null)
+        if (!user) resetProjects()
       })
     })
     return () => unsub()
