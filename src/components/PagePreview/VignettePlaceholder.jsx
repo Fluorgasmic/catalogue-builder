@@ -3,6 +3,7 @@ import { mmToCssPx } from '../../utils/layoutCalculator'
 import { AnyBlock } from '../VignetteBuilder/blockRenderer'
 import { buildImageUrl } from '../../utils/imageUrl'
 import { useLocalImageRefresh } from '../../hooks/useLocalImageRefresh'
+import { flowBlockHeight } from '../../blocks/blockMetrics'
 
 /**
  * Renders one product vignette in the page preview.
@@ -41,28 +42,6 @@ export default function VignettePlaceholder({ row, vignetteW, vignetteH, zoom, i
   )
 }
 
-// ─── Height estimation (mirrors blockRenderer fixed-height logic) ─────────────
-
-function estimateBlockHeight(block, hPx, scale) {
-  switch (block.type) {
-    case 'text':
-    case 'static': {
-      const fontSize   = (block.fontSize ?? 10) * scale
-      const maxLines   = block.maxLines ?? 1
-      const paddingVpx = Math.round((block.paddingV ?? 2) * scale)
-      return Math.ceil(fontSize * 1.4 * maxLines) + paddingVpx * 2
-    }
-    case 'image':
-      return (block.heightPct != null ? block.heightPct / 100 : 0.5) * hPx
-    case 'separator': {
-      const marginV = (block.marginV ?? 2) * scale
-      return Math.max(0.5, (block.thickness ?? 0.5) * scale) + marginV * 2
-    }
-    default:
-      return 0
-  }
-}
-
 // ─── Rendered from block definitions ─────────────────────────────────────────
 
 function BlockVignette({ wPx, hPx, scale, row, blocks, imageBasePath, imageColumn, imageExtension }) {
@@ -78,7 +57,7 @@ function BlockVignette({ wPx, hPx, scale, row, blocks, imageBasePath, imageColum
   const flowBlocks = []
   let usedH = 0
   for (const block of allFlow) {
-    const bh = estimateBlockHeight(block, hPx, scale)
+    const bh = flowBlockHeight(block, hPx, scale)
     if (usedH + bh > hPx - safetyMargin) break
     flowBlocks.push(block)
     usedH += bh

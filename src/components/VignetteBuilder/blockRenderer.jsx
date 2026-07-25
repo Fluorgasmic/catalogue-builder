@@ -6,6 +6,7 @@
  * adapts automatically when the grid changes.
  */
 import { buildImageUrl } from '../../utils/imageUrl'
+import { LINE_HEIGHT, textMetrics, imageHeight, separatorMetrics } from '../../blocks/blockMetrics'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -67,15 +68,7 @@ export function TextBlockContent({ block, row, vignetteWpx, vignetteHpx, scale }
   const suffix  = block.suffix ?? ''
   const content = rawContent ? `${prefix}${rawContent}${suffix}` : ''
 
-  const fontSize   = (block.fontSize ?? 10) * scale
-  const maxLines   = block.maxLines ?? 1
-  const paddingVpx = Math.round((block.paddingV ?? 2) * scale)
-  const paddingHpx = Math.round((block.paddingH ?? 3) * scale)
-  const LINE_H     = 1.4
-  // Round to integer pixels: eliminates sub-pixel accumulation drift between
-  // the JS height estimator and actual CSS rendering across multiple blocks.
-  const textH      = Math.ceil(fontSize * LINE_H * maxLines)
-  const blockH     = textH + paddingVpx * 2
+  const { fontSize, maxLines, paddingVpx, paddingHpx, blockH } = textMetrics(block, scale)
 
   const hasBg       = block.bgColor && block.bgColor !== 'transparent'
   const borderRadius = hasBg ? (block.bgBorderRadius ?? 0) * scale : 0
@@ -125,7 +118,7 @@ export function TextBlockContent({ block, row, vignetteWpx, vignetteHpx, scale }
     fontStyle:       block.italic ? 'italic' : 'normal',
     color:           block.color ?? '#111111',
     textAlign:       block.align ?? 'left',
-    lineHeight:      isCenterSingleLine ? `${blockH}px` : LINE_H,
+    lineHeight:      isCenterSingleLine ? `${blockH}px` : LINE_HEIGHT,
     whiteSpace:      maxLines === 1 ? 'nowrap' : 'normal',
     wordBreak:       maxLines > 1 ? 'break-word' : undefined,
     overflow:        'hidden',
@@ -145,7 +138,7 @@ export function TextBlockContent({ block, row, vignetteWpx, vignetteHpx, scale }
       }}>
         <div style={{
           ...baseStyle,
-          lineHeight: LINE_H,
+          lineHeight: LINE_HEIGHT,
           display: 'inline-block',
           maxWidth: '100%',
           paddingTop: paddingVpx,
@@ -199,8 +192,7 @@ export function ImageBlockContent({ block, row, vignetteHpx, scale, imageBasePat
     src = colVal ? buildImageUrl(colVal, imageBasePath, block.extension ?? imageExtension) : null
   }
 
-  // Height is always % of vignette height — never overflows
-  const heightPx = (block.heightPct != null ? block.heightPct / 100 : 0.5) * vignetteHpx
+  const heightPx = imageHeight(block, vignetteHpx)
 
   return (
     <div style={{
@@ -333,12 +325,12 @@ function BadgeImage({ src, w, h, opacity }) {
 }
 
 export function SeparatorBlockContent({ block, vignetteWpx, scale }) {
-  const marginV = (block.marginV ?? 2) * scale
+  const { marginV, lineH } = separatorMetrics(block, scale)
   return (
     <div style={{ width: '100%', paddingTop: marginV, paddingBottom: marginV, display: 'flex', justifyContent: 'center' }}>
       <div style={{
         width: block.separatorWidth ?? '100%',
-        height: Math.max(0.5, (block.thickness ?? 0.5) * scale),
+        height: lineH,
         backgroundColor: block.color ?? '#e5e7eb',
         flexShrink: 0,
       }} />
