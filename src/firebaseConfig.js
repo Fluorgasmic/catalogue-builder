@@ -34,5 +34,13 @@ export const firebaseConfig = {
   appId: '1:566028100433:web:c39af306acd6eef770a970',
 }
 
+/**
+ * Contournement de développement : `VITE_AUTH_DISABLED=true` dans un `.env.local`
+ * ouvre l'éditeur sans connexion, pour travailler sur l'UI sans identifiants.
+ * Verrouillé sur `import.meta.env.DEV` — un build de production l'ignore toujours,
+ * quelle que soit la variable d'environnement.
+ */
+const devAuthBypass = import.meta.env.DEV && import.meta.env.VITE_AUTH_DISABLED === 'true'
+
 /** Authentification activée seulement si la config est renseignée. */
-export const authEnabled = Boolean(firebaseConfig.apiKey)
+export const authEnabled = Boolean(firebaseConfig.apiKey) && !devAuthBypass
