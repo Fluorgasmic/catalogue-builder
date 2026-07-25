@@ -9,6 +9,7 @@
  */
 
 import { getFirebase } from './firebase'
+import { assertDocFits } from './docSize'
 
 const COL = 'projects'
 
@@ -48,7 +49,8 @@ export async function saveProject(uid, projectId, { name, data, productCount } =
   const ref = dbMod.doc(db, 'users', uid, COL, projectId)
   const patch = { updatedAt: dbMod.serverTimestamp() }
   if (name !== undefined) patch.name = name
-  if (data !== undefined) patch.data = data
+  // Mesuré avant l'envoi : un refus serveur ne dit pas ce qui pèse.
+  if (data !== undefined) { assertDocFits(data); patch.data = data }
   if (productCount !== undefined) patch.productCount = productCount
   await dbMod.setDoc(ref, patch, { merge: true })
 }
