@@ -1,5 +1,6 @@
-import * as XLSX from 'xlsx'
-import Papa from 'papaparse'
+// `xlsx` et `papaparse` pèsent l'essentiel du bundle et ne servent qu'au moment
+// où l'utilisateur dépose un fichier : ils sont importés à la demande, dans la
+// branche qui les concerne, pour ne pas peser sur le premier chargement.
 
 /**
  * Parse an Excel or CSV file.
@@ -17,7 +18,8 @@ export async function parseFile(file, options = {}) {
   }
 }
 
-function parseCsv(file, options) {
+async function parseCsv(file, options) {
+  const { default: Papa } = await import('papaparse')
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
@@ -34,6 +36,7 @@ function parseCsv(file, options) {
 }
 
 async function parseExcel(file, options) {
+  const XLSX = await import('xlsx')
   const buffer = await file.arrayBuffer()
   const workbook = XLSX.read(buffer, { type: 'array', cellFormula: false, cellHTML: false })
 

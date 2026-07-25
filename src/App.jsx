@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import {
   Database, LayoutGrid, Eye, BookOpen, Download,
   FolderOpen, Save, Layers, ArrowLeft, Cloud, CloudOff, Check
@@ -12,7 +12,9 @@ import GridSettings from './components/GridSettings/GridSettings'
 import PagePreview from './components/PagePreview/PagePreview'
 import VignetteBuilder from './components/VignetteBuilder/VignetteBuilder'
 import HeaderFooterBuilder from './components/HeaderFooter/HeaderFooterBuilder'
-import ExportModal from './components/Export/ExportModal'
+// jspdf et html-to-image ne servent qu'à l'export : chargés à l'ouverture
+// de la modale, pas au démarrage de l'application.
+const ExportModal = lazy(() => import('./components/Export/ExportModal'))
 import WorkflowStepper from './components/Onboarding/WorkflowStepper'
 import Dashboard from './components/Dashboard/Dashboard'
 import { usePagination } from './hooks/usePagination'
@@ -193,7 +195,11 @@ function Editor() {
       </aside>
 
       {/* Export modal */}
-      {showExport && <ExportModal onClose={() => setShowExport(false)} />}
+      {showExport && (
+        <Suspense fallback={null}>
+          <ExportModal onClose={() => setShowExport(false)} />
+        </Suspense>
+      )}
 
       {/* ══ Main content ═══════════════════════════════════════════ */}
       <main className="flex-1 overflow-hidden flex flex-col">

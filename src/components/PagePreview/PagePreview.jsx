@@ -1,11 +1,12 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, lazy, Suspense } from 'react'
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, BookOpen, Download } from 'lucide-react'
 import useCatalogStore from '../../store/catalogStore'
 import { usePagination } from '../../hooks/usePagination'
 import { useCtrlWheelZoom } from '../../hooks/useCtrlWheelZoom'
 import PageCanvas from './PageCanvas'
 import PageThumbnails from './PageThumbnails'
-import ExportModal from '../Export/ExportModal'
+// Même chargement différé que dans App : l'export ne pèse pas au démarrage.
+const ExportModal = lazy(() => import('../Export/ExportModal'))
 
 const ZOOM_LEVELS = [25, 50, 75, 100, 125, 150, 200, 250, 300]
 
@@ -56,7 +57,11 @@ export default function PagePreview() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {showExport && <ExportModal onClose={() => setShowExport(false)} />}
+      {showExport && (
+        <Suspense fallback={null}>
+          <ExportModal onClose={() => setShowExport(false)} />
+        </Suspense>
+      )}
 
       {/* ── Thumbnails sidebar ─────────────────────────────────── */}
       <PageThumbnails pages={pages} currentPage={previewPage} onSelect={goTo} />
