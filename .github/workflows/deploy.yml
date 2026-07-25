@@ -36,6 +36,9 @@ jobs:
 
       # ── Version courante (main) → racine du site ────────────────────────────
       - run: npm ci
+      # Les tests bloquent le déploiement : un cœur de calcul cassé ne part pas
+      # en ligne, et la version figée sous /v1/ reste servie telle quelle.
+      - run: npm test
       - run: npm run build
 
       # ── Version figée (tag) → sous-dossier /v1/ ─────────────────────────────
