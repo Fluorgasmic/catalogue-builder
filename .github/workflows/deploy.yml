@@ -14,6 +14,10 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  # Version figée servie en parallèle de la version courante, sous /v1/.
+  FROZEN_TAG: v1.0
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -22,14 +26,28 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # les tags sont nécessaires pour construire la version figée
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
+      # ── Version courante (main) → racine du site ────────────────────────────
       - run: npm ci
       - run: npm run build
+
+      # ── Version figée (tag) → sous-dossier /v1/ ─────────────────────────────
+      - name: Build ${{ env.FROZEN_TAG }}
+        run: |
+          git worktree add ../frozen "$FROZEN_TAG"
+          cd ../frozen
+          npm ci
+          npx vite build --base=/catalogue-builder/v1/
+
+      - name: Copier la version figée dans dist/v1
+        run: cp -r ../frozen/dist dist/v1
 
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
