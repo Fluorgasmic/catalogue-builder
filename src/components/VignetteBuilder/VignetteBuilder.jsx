@@ -8,6 +8,7 @@ import BlockEditor from './BlockEditor'
 import ZoomControl from '../UI/ZoomControl'
 import { useCtrlWheelZoom } from '../../hooks/useCtrlWheelZoom'
 import { nanoid } from './nanoid'
+import TemplatePicker from './vignetteTemplates'
 
 // ─── Block type definitions ───────────────────────────────────────────────────
 
@@ -49,13 +50,63 @@ export function createBlock(type, columns) {
   }
 }
 
+// ─── Templates ───────────────────────────────────────────────────────────────
+
+// Same defaults as a manually added block, then the template's own styling on top.
+function templateBlock(type, columns, overrides = {}) {
+  return { ...createBlock(type, columns), ...overrides }
+}
+
+// A template pre-maps the first data columns so the vignette is never blank on apply.
+// The user remaps them afterwards in the block editor.
+function col(columns, index) {
+  return columns[index] ? [columns[index]] : []
+}
+
+export const TEMPLATES = [
+  { id: 'minimalist', name: 'Minimaliste', desc: 'Texte + séparateur, sobre', icon: Type, color: '#7C5CFC',
+    build(columns) {
+      return [
+        templateBlock('text', columns, { columns: col(columns, 0), fontSize: 9, fontWeight: 500, color: '#111111', maxLines: 1 }),
+        templateBlock('separator', columns, { thickness: 0.3, color: '#d1d5db', marginV: 1 }),
+        templateBlock('text', columns, { columns: col(columns, 1), fontSize: 8, fontWeight: 300, color: '#6b7280', maxLines: 2 }),
+      ]
+    }},
+  { id: 'product', name: 'Produit', desc: 'Image + colonnes + badge', icon: Image, color: '#3b82f6',
+    build(columns) {
+      return [
+        templateBlock('image', columns, { heightPct: 60, fit: 'contain' }),
+        templateBlock('text', columns, { columns: col(columns, 0), fontSize: 9, fontWeight: 600, color: '#111111', maxLines: 1, paddingV: 1 }),
+        templateBlock('text', columns, { columns: col(columns, 1), fontSize: 8, fontWeight: 400, color: '#4b5563', maxLines: 1, paddingV: 0.5 }),
+        templateBlock('badge', columns, { position: 'absolute', x: 2, y: 2, widthPct: 18, heightPct: 18 }),
+      ]
+    }},
+  { id: 'modern', name: 'Moderne', desc: 'Fond coloré + image + texte', icon: AlignLeft, color: '#10b981',
+    build(columns) {
+      return [
+        templateBlock('text', columns, { columns: col(columns, 0), fontSize: 11, fontWeight: 700, color: '#ffffff', align: 'center', bgColor: '#7C5CFC', bgBorderRadius: 2, widthMode: 'full', paddingV: 3, paddingH: 4, maxLines: 1 }),
+        templateBlock('image', columns, { heightPct: 50, fit: 'cover' }),
+        templateBlock('static', columns, { staticText: 'Nouveau', fontSize: 7, fontWeight: 600, color: '#7C5CFC', align: 'center', paddingV: 0.5 }),
+      ]
+    }},
+  { id: 'promo', name: 'Promo', desc: 'Badge promo + image + prix', icon: Tag, color: '#ef4444',
+    build(columns) {
+      return [
+        templateBlock('image', columns, { heightPct: 55, fit: 'contain' }),
+        templateBlock('badge', columns, { position: 'absolute', x: 2, y: 2, widthPct: 20, heightPct: 20 }),
+        templateBlock('text', columns, { columns: col(columns, 0), fontSize: 10, fontWeight: 700, color: '#ef4444', align: 'center', maxLines: 1 }),
+        templateBlock('text', columns, { columns: col(columns, 1), fontSize: 8, fontWeight: 400, color: '#9ca3af', align: 'center', maxLines: 1, paddingV: 0.5 }),
+      ]
+    }},
+]
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function VignetteBuilder() {
   const {
     grid, header, footer,
     vignetteBlocks, selectedBlockId, setSelectedBlock,
-    addBlock, columns, rawData,
+    addBlock, clearBlocks, columns, rawData,
   } = useCatalogStore()
 
   const [previewIndex, setPreviewIndex] = useState(0)
@@ -75,15 +126,26 @@ export default function VignetteBuilder() {
     setSelectedBlock(block.id)
   }
 
+  const handleApplyTemplate = (templateId) => {
+    const tpl = TEMPLATES.find(t => t.id === templateId)
+    if (!tpl) return
+    clearBlocks()
+    for (const block of tpl.build(columns)) {
+      addBlock(block)
+    }
+  }
+
   const selectedBlock = vignetteBlocks.find(b => b.id === selectedBlockId) ?? null
 
   return (
     <div className="flex h-full overflow-hidden">
 
-      {/* ══ Left panel — Block list ════════════════════════════ */}
-      <div className="w-52 shrink-0 bg-surface-2 border-r border-surface-4 flex flex-col overflow-hidden">
-        <div className="px-3 pt-4 pb-2 border-b border-surface-4">
-          <p className="section-title mb-3">Ajouter un bloc</p>
+      {/* ══ Left panel — Templates + Block list ════════════ */}
+      <div className="w-56 shrink-0 bg-surface-2 border-r border-surface-4 flex flex-col overflow-hidden">
+        <TemplatePicker templates={TEMPLATES} onApply={handleApplyTemplate} />
+
+        <div className="px-3 pt-3 pb-2 border-b border-surface-4">
+          <p className="section-title mb-2">Ajouter un bloc</p>
           <div className="flex flex-col gap-1">
             {BLOCK_TYPES.map(({ type, icon: Icon, label, color }) => (
               <button
