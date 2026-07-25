@@ -41,10 +41,10 @@ export default function App() {
 }
 
 function Editor() {
-  const { activeTab, setActiveTab, rawData, columns, grid, groupColumn, projectName, setProjectName, exportProject, importProject } = useCatalogStore()
+  const { activeTab, setActiveTab, rawData, grid, groupColumn, projectName, setProjectName, exportProject, importProject } = useCatalogStore()
 
   const [showExport, setShowExport] = useState(false)
-  const pages = usePagination(rawData, columns, grid, groupColumn)
+  const pages = usePagination(rawData, grid, groupColumn)
 
   // ── Auto-save cloud (debounce) ──────────────────────────────
   const { uid, currentId, save, backToDashboard } = useProjectsStore()

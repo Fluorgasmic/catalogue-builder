@@ -11,12 +11,12 @@ const ZOOM_LEVELS = [25, 50, 75, 100, 125, 150, 200, 250, 300]
 
 export default function PagePreview() {
   const {
-    rawData, columns, grid, header, footer, groupColumn,
+    rawData, grid, header, footer, groupColumn,
     previewPage, previewZoom, setPreviewPage, setPreviewZoom,
   } = useCatalogStore()
 
   const [showExport, setShowExport] = useState(false)
-  const pages = usePagination(rawData, columns, grid, groupColumn)
+  const pages = usePagination(rawData, grid, groupColumn)
   const totalPages = pages.length
   const currentPage = pages[previewPage]
 

@@ -25,8 +25,8 @@ function waitForImages(container, timeout = 8000) {
 }
 
 export default function ExportModal({ onClose }) {
-  const { rawData, columns, grid, header, footer, groupColumn, projectName, customFonts } = useCatalogStore()
-  const pages = usePagination(rawData, columns, grid, groupColumn)
+  const { rawData, grid, header, footer, groupColumn, projectName, customFonts } = useCatalogStore()
+  const pages = usePagination(rawData, grid, groupColumn)
   const dims = calcVignetteDimensions(grid, header, footer)
 
   const [quality, setQuality] = useState('high')  // 'standard' | 'high' | 'print'
