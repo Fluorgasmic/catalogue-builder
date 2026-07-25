@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import {
   Database, LayoutGrid, Eye, BookOpen, Download,
   FolderOpen, Save, Layers, ArrowLeft, Cloud, CloudOff, Check
@@ -18,6 +18,7 @@ const ExportModal = lazy(() => import('./components/Export/ExportModal'))
 import WorkflowStepper from './components/Onboarding/WorkflowStepper'
 import Dashboard from './components/Dashboard/Dashboard'
 import { usePagination } from './hooks/usePagination'
+import { useCloudAutosave } from './hooks/useCloudAutosave'
 
 // ─── Sidebar nav items ────────────────────────────────────────────────────────
 
@@ -42,40 +43,34 @@ export default function App() {
   return <Editor />
 }
 
+// Identités stables, hors composant : passées au hook d'auto-save, elles ne
+// doivent pas changer à chaque rendu sous peine de recréer l'abonnement.
+const subscribeToCatalog = (listener) => useCatalogStore.subscribe(listener)
+
+const catalogSnapshot = () => {
+  const s = useCatalogStore.getState()
+  return {
+    name: s.projectName,
+    data: JSON.parse(s.exportProject()),
+    productCount: s.rawData.length,
+  }
+}
+
 function Editor() {
   const { activeTab, setActiveTab, rawData, grid, groupColumn, projectName, setProjectName, exportProject, importProject } = useCatalogStore()
 
   const [showExport, setShowExport] = useState(false)
   const pages = usePagination(rawData, grid, groupColumn)
 
-  // ── Auto-save cloud (debounce) ──────────────────────────────
+  // ── Auto-save cloud ─────────────────────────────────────────
   const { uid, currentId, save, backToDashboard } = useProjectsStore()
   const cloudActive = authEnabled && uid && currentId
-  const [saveState, setSaveState] = useState('idle') // 'idle' | 'saving' | 'saved'
-  const saveTimer = useRef(null)
-  const firstRun = useRef(true)
-
-  // Abonne-toi aux changements persistés du catalogStore et sauvegarde 2s après.
-  useEffect(() => {
-    if (!cloudActive) return
-    const unsub = useCatalogStore.subscribe(() => {
-      if (firstRun.current) { firstRun.current = false; return }
-      setSaveState('saving')
-      clearTimeout(saveTimer.current)
-      saveTimer.current = setTimeout(async () => {
-        try {
-          await save({
-            name: useCatalogStore.getState().projectName,
-            data: JSON.parse(useCatalogStore.getState().exportProject()),
-            productCount: useCatalogStore.getState().rawData.length,
-          })
-          setSaveState('saved')
-          setTimeout(() => setSaveState('idle'), 1500)
-        } catch { setSaveState('idle') }
-      }, 2000)
-    })
-    return () => { unsub(); clearTimeout(saveTimer.current) }
-  }, [cloudActive, save])
+  const { status: saveState, error: saveError } = useCloudAutosave({
+    enabled: Boolean(cloudActive),
+    subscribe: subscribeToCatalog,
+    getSnapshot: catalogSnapshot,
+    save,
+  })
 
   const handleSave = () => {
     const json = exportProject()
@@ -128,9 +123,19 @@ function Editor() {
             >
               <ArrowLeft size={14} />
             </button>
+            {/* L'indicateur ne dit « Enregistré » que lorsque l'écriture est
+                réellement terminée : « Enregistrement… » signalait autrefois
+                une écriture simplement programmée, qui pouvait être annulée. */}
             <span className="flex-1 text-[10px] flex items-center gap-1.5 justify-end">
+              {saveState === 'pending' && <><Cloud size={11} className="text-amber-400" /><span className="text-amber-500">Non enregistré</span></>}
               {saveState === 'saving' && <><Cloud size={11} className="text-accent animate-pulse" /><span className="text-gray-500">Enregistrement…</span></>}
               {saveState === 'saved' && <><Check size={11} className="text-emerald-400" /><span className="text-emerald-500">Enregistré</span></>}
+              {saveState === 'error' && (
+                <span title={saveError?.message ?? ''} className="flex items-center gap-1.5">
+                  <CloudOff size={11} className="text-red-400" />
+                  <span className="text-red-400">Échec de l'enregistrement</span>
+                </span>
+              )}
               {saveState === 'idle' && <><Cloud size={11} className="text-gray-700" /><span className="text-gray-700">Synchronisé</span></>}
             </span>
           </div>
