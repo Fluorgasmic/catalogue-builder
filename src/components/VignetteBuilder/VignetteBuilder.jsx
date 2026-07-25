@@ -1,104 +1,15 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
-import { Plus, Type, Image, Tag, Minus, AlignLeft, ChevronLeft, ChevronRight, Eye, EyeOff, Layers } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Layers } from 'lucide-react'
 import useCatalogStore from '../../store/catalogStore'
 import { calcVignetteDimensions, mmToCssPx } from '../../utils/layoutCalculator'
+import { BLOCK_TYPES, createBlock } from '../../blocks/blockTypes'
+import { TEMPLATES, buildTemplate } from '../../blocks/templates'
 import VignetteCanvas from './VignetteCanvas'
 import BlockList from './BlockList'
 import BlockEditor from './BlockEditor'
 import ZoomControl from '../UI/ZoomControl'
 import { useCtrlWheelZoom } from '../../hooks/useCtrlWheelZoom'
-import { nanoid } from './nanoid'
 import TemplatePicker from './vignetteTemplates'
-
-// ─── Block type definitions ───────────────────────────────────────────────────
-
-export const BLOCK_TYPES = [
-  { type: 'text',      icon: Type,     label: 'Texte lié',      color: '#7C5CFC' },
-  { type: 'image',     icon: Image,    label: 'Image produit',  color: '#3b82f6' },
-  { type: 'static',    icon: AlignLeft,label: 'Texte statique', color: '#10b981' },
-  { type: 'badge',     icon: Tag,      label: 'Badge conditionnel', color: '#f59e0b' },
-  { type: 'separator', icon: Minus,    label: 'Séparateur',     color: '#6b7280' },
-]
-
-// ─── Default block props by type ──────────────────────────────────────────────
-
-export function createBlock(type, columns) {
-  const base = {
-    id: nanoid(),
-    type,
-    position: 'flow',
-    x: 0, y: 0,
-    width: null, height: null,
-    visible: true,
-  }
-  switch (type) {
-    case 'text':
-      // Start with NO columns — user maps them explicitly
-      return { ...base, columns: [], separator: ' ', prefix: '', suffix: '', fontSize: 10, fontWeight: 400, fontFamily: 'inherit', color: '#111111', align: 'left', vAlign: 'top', italic: false, paddingH: 3, paddingV: 2, maxLines: 1, bgColor: null, bgBorderRadius: 0, widthMode: 'full' }
-    case 'image':
-      // heightPct: % of vignette height — adapts automatically to any grid
-      return { ...base, imageColumn: null, extension: null, fit: 'contain', heightPct: 50 }
-    case 'static':
-      return { ...base, staticText: 'Texte libre', fontSize: 9, fontWeight: 400, fontFamily: 'inherit', color: '#666666', align: 'left', vAlign: 'top', italic: false, paddingH: 3, paddingV: 1, maxLines: 1, bgColor: null, bgBorderRadius: 0, widthMode: 'full' }
-    case 'badge':
-      // Badges are absolute by default — placed freely over the vignette
-      return { ...base, position: 'absolute', x: 2, y: 2, badgeSrc: null, conditionColumn: columns[0] ?? null, conditionOperator: '==', conditionValue: '', widthPct: 15, heightPct: 15 }
-    case 'separator':
-      return { ...base, thickness: 0.5, color: '#e5e7eb', marginV: 2, separatorWidth: '100%' }
-    default:
-      return base
-  }
-}
-
-// ─── Templates ───────────────────────────────────────────────────────────────
-
-// Same defaults as a manually added block, then the template's own styling on top.
-function templateBlock(type, columns, overrides = {}) {
-  return { ...createBlock(type, columns), ...overrides }
-}
-
-// A template pre-maps the first data columns so the vignette is never blank on apply.
-// The user remaps them afterwards in the block editor.
-function col(columns, index) {
-  return columns[index] ? [columns[index]] : []
-}
-
-export const TEMPLATES = [
-  { id: 'minimalist', name: 'Minimaliste', desc: 'Texte + séparateur, sobre', icon: Type, color: '#7C5CFC',
-    build(columns) {
-      return [
-        templateBlock('text', columns, { columns: col(columns, 0), fontSize: 9, fontWeight: 500, color: '#111111', maxLines: 1 }),
-        templateBlock('separator', columns, { thickness: 0.3, color: '#d1d5db', marginV: 1 }),
-        templateBlock('text', columns, { columns: col(columns, 1), fontSize: 8, fontWeight: 300, color: '#6b7280', maxLines: 2 }),
-      ]
-    }},
-  { id: 'product', name: 'Produit', desc: 'Image + colonnes + badge', icon: Image, color: '#3b82f6',
-    build(columns) {
-      return [
-        templateBlock('image', columns, { heightPct: 60, fit: 'contain' }),
-        templateBlock('text', columns, { columns: col(columns, 0), fontSize: 9, fontWeight: 600, color: '#111111', maxLines: 1, paddingV: 1 }),
-        templateBlock('text', columns, { columns: col(columns, 1), fontSize: 8, fontWeight: 400, color: '#4b5563', maxLines: 1, paddingV: 0.5 }),
-        templateBlock('badge', columns, { position: 'absolute', x: 2, y: 2, widthPct: 18, heightPct: 18 }),
-      ]
-    }},
-  { id: 'modern', name: 'Moderne', desc: 'Fond coloré + image + texte', icon: AlignLeft, color: '#10b981',
-    build(columns) {
-      return [
-        templateBlock('text', columns, { columns: col(columns, 0), fontSize: 11, fontWeight: 700, color: '#ffffff', align: 'center', bgColor: '#7C5CFC', bgBorderRadius: 2, widthMode: 'full', paddingV: 3, paddingH: 4, maxLines: 1 }),
-        templateBlock('image', columns, { heightPct: 50, fit: 'cover' }),
-        templateBlock('static', columns, { staticText: 'Nouveau', fontSize: 7, fontWeight: 600, color: '#7C5CFC', align: 'center', paddingV: 0.5 }),
-      ]
-    }},
-  { id: 'promo', name: 'Promo', desc: 'Badge promo + image + prix', icon: Tag, color: '#ef4444',
-    build(columns) {
-      return [
-        templateBlock('image', columns, { heightPct: 55, fit: 'contain' }),
-        templateBlock('badge', columns, { position: 'absolute', x: 2, y: 2, widthPct: 20, heightPct: 20 }),
-        templateBlock('text', columns, { columns: col(columns, 0), fontSize: 10, fontWeight: 700, color: '#ef4444', align: 'center', maxLines: 1 }),
-        templateBlock('text', columns, { columns: col(columns, 1), fontSize: 8, fontWeight: 400, color: '#9ca3af', align: 'center', maxLines: 1, paddingV: 0.5 }),
-      ]
-    }},
-]
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -127,10 +38,10 @@ export default function VignetteBuilder() {
   }
 
   const handleApplyTemplate = (templateId) => {
-    const tpl = TEMPLATES.find(t => t.id === templateId)
-    if (!tpl) return
+    const blocks = buildTemplate(templateId, columns)
+    if (!blocks) return
     clearBlocks()
-    for (const block of tpl.build(columns)) {
+    for (const block of blocks) {
       addBlock(block)
     }
   }
