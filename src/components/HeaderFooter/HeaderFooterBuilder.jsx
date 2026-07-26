@@ -10,6 +10,8 @@ import { AnyBlock } from '../VignetteBuilder/blockRenderer'
 import NumberInput from '../UI/NumberInput'
 import Toggle from '../UI/Toggle'
 import ZoomControl from '../UI/ZoomControl'
+import AssetPicker from '../Assets/AssetPicker'
+import { blockImageSrc } from '../../utils/assetUrl'
 import { useCtrlWheelZoom } from '../../hooks/useCtrlWheelZoom'
 import ColorPickerInline from './ColorPickerInline'
 
@@ -813,8 +815,9 @@ function HFBlockEditor({ block, section, zoneWmm, zoneHmm, onUpdate }) {
           <>
             <EditorSection title="Image">
               <ImageUpload
-                src={block.directSrc}
-                onChange={(src) => onUpdate({ directSrc: src })}
+                assetName={block.assetName}
+                legacySrc={block.directSrc}
+                onChange={(nom) => onUpdate({ assetName: nom, directSrc: nom ? null : block.directSrc })}
               />
             </EditorSection>
             <EditorSection title="Ajustement">
@@ -988,41 +991,62 @@ function AlignButtons({ value, onChange }) {
   )
 }
 
-function ImageUpload({ src, onChange }) {
-  const inputRef = useRef()
-
-  const handleFile = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => onChange(ev.target.result)
-    reader.readAsDataURL(file)
-    e.target.value = ''
-  }
-
-  if (src) {
-    return (
-      <div className="flex items-center gap-3">
-        <div className="w-24 h-14 bg-surface-3 border border-surface-5 rounded-lg flex items-center justify-center overflow-hidden">
-          <img src={src} alt="" className="max-w-full max-h-full object-contain" />
-        </div>
-        <button className="btn-ghost text-xs gap-1" onClick={() => onChange(null)}>
-          <X size={12} /> Supprimer
-        </button>
-      </div>
-    )
-  }
+/**
+ * Choix d'un visuel dans le répertoire d'assets du client.
+ *
+ * Remplace l'ancien téléversement, qui collait l'image en base64 dans le
+ * projet : un logo de quelques centaines de kilo-octets suffisait à rendre
+ * le catalogue trop volumineux pour être enregistré.
+ *
+ * `legacySrc` reste affiché pour les projets créés avant les assets.
+ */
+function ImageUpload({ assetName, legacySrc, onChange }) {
+  const [pickerOuvert, setPickerOuvert] = useState(false)
+  const apercu = blockImageSrc({ assetName, legacySrc })
 
   return (
-    <>
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
-      <button
-        className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-surface-5 hover:border-accent/50 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition-colors w-full justify-center"
-        onClick={() => inputRef.current?.click()}
-      >
-        <ImageIcon size={14} />
-        Charger une image (PNG, SVG, JPG)
-      </button>
-    </>
+    <div className="flex flex-col gap-2">
+      {apercu ? (
+        <div className="flex items-center gap-3">
+          <div className="w-24 h-14 bg-surface-3 border border-surface-5 rounded-lg flex items-center justify-center overflow-hidden">
+            <img src={apercu} alt="" className="max-w-full max-h-full object-contain" />
+          </div>
+          <div className="flex flex-col gap-1 min-w-0">
+            {assetName && <span className="font-mono text-[10px] text-gray-500 truncate">{assetName}</span>}
+            <div className="flex gap-1">
+              <button className="btn-ghost text-xs gap-1" onClick={() => setPickerOuvert(o => !o)}>
+                Remplacer
+              </button>
+              <button className="btn-ghost text-xs gap-1" onClick={() => onChange(null)}>
+                <X size={12} /> Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <button
+          className="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-surface-5 hover:border-accent/50 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition-colors w-full justify-center"
+          onClick={() => setPickerOuvert(o => !o)}
+        >
+          <ImageIcon size={14} />
+          Choisir dans mes assets
+        </button>
+      )}
+
+      {legacySrc && !assetName && (
+        <p className="text-[10px] text-amber-500/90 leading-relaxed">
+          Image intégrée au projet. Choisissez-la depuis votre répertoire d’assets
+          pour alléger le catalogue.
+        </p>
+      )}
+
+      {pickerOuvert && (
+        <AssetPicker
+          value={assetName ?? null}
+          onChange={onChange}
+          onClose={() => setPickerOuvert(false)}
+        />
+      )}
+    </div>
   )
 }

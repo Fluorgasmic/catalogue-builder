@@ -29,8 +29,10 @@ export function resolveAssetUrl(assetName, providerId) {
   if (!assetName) return null
   if (isDirectSrc(assetName)) return assetName
 
-  const provider = providerId ? getProvider(providerId) : null
   const conn = getActiveConnection(ASSETS)
+  // La connexion vivante porte son propre fournisseur (`kind`) : inutile de le
+  // faire descendre en prop à travers tout l'arbre de rendu.
+  const provider = getProvider(providerId ?? conn?.kind)
   if (!provider || !conn) return null
 
   if (provider.resolveUrlSync) return provider.resolveUrlSync(conn, assetName)
@@ -51,8 +53,8 @@ export function blockImageSrc({ assetName, legacySrc, providerId }) {
 
 /** Liste des assets disponibles, pour le sélecteur à vignettes. */
 export function listAssets(providerId) {
-  const provider = providerId ? getProvider(providerId) : null
   const conn = getActiveConnection(ASSETS)
+  const provider = getProvider(providerId ?? conn?.kind)
   if (!provider?.canList || !conn) return []
   return provider.list?.(conn) ?? []
 }

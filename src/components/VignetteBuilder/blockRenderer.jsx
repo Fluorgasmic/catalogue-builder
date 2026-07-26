@@ -7,6 +7,7 @@
  */
 import { buildImageUrl } from '../../utils/imageUrl'
 import { LINE_HEIGHT, textMetrics, imageHeight, separatorMetrics } from '../../blocks/blockMetrics'
+import { blockImageSrc } from '../../utils/assetUrl'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -183,8 +184,9 @@ export function TextBlockContent({ block, row, vignetteWpx, vignetteHpx, scale }
 }
 
 export function ImageBlockContent({ block, row, vignetteHpx, scale, imageBasePath, imageColumn, imageExtension }) {
-  // Support direct src (for header/footer logo uploads)
-  let src = block.directSrc ?? null
+  // Visuel de mise en page (logo, image d'en-tête) : référence d'asset, avec
+  // repli sur le base64 hérité.
+  let src = blockImageSrc({ assetName: block.assetName, legacySrc: block.directSrc })
   if (!src) {
     const colVal = block.imageColumn
       ? (row?.[block.imageColumn] ?? '')
@@ -250,8 +252,12 @@ export function BadgeBlockContent({ block, row, vignetteWpx, vignetteHpx, scale,
   const w = ((block.widthPct  ?? 15) / 100) * vignetteWpx
   const h = ((block.heightPct ?? 15) / 100) * vignetteHpx
 
+  // Référence vers le répertoire d'assets ; badgeSrc (base64) sert de repli
+  // pour les projets créés avant les assets.
+  const badgeUrl = blockImageSrc({ assetName: block.assetName, legacySrc: block.badgeSrc })
+
   // No badge image yet
-  if (!block.badgeSrc) {
+  if (!badgeUrl) {
     // In editor show placeholder, in output hide completely
     if (!isEditor) return null
     return (
@@ -269,7 +275,7 @@ export function BadgeBlockContent({ block, row, vignetteWpx, vignetteHpx, scale,
   if (!block.conditionColumn) {
     if (!isEditor) return null
     return (
-      <BadgeImage src={block.badgeSrc} w={w} h={h} opacity={0.3} />
+      <BadgeImage src={badgeUrl} w={w} h={h} opacity={0.3} />
     )
   }
 
@@ -286,12 +292,12 @@ export function BadgeBlockContent({ block, row, vignetteWpx, vignetteHpx, scale,
   if (!match) {
     if (!isEditor) return null
     return (
-      <BadgeImage src={block.badgeSrc} w={w} h={h} opacity={0.2} />
+      <BadgeImage src={badgeUrl} w={w} h={h} opacity={0.2} />
     )
   }
 
   return (
-    <BadgeImage src={block.badgeSrc} w={w} h={h} opacity={1} />
+    <BadgeImage src={badgeUrl} w={w} h={h} opacity={1} />
   )
 }
 

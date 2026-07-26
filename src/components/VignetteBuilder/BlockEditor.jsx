@@ -5,6 +5,8 @@ import Select from '../UI/Select'
 import NumberInput from '../UI/NumberInput'
 import Toggle from '../UI/Toggle'
 import ColorPicker from './ColorPicker'
+import AssetPicker from '../Assets/AssetPicker'
+import { blockImageSrc } from '../../utils/assetUrl'
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -337,33 +339,42 @@ function ImageProps({ block, update }) {
 }
 
 function BadgeProps({ block, update, columns }) {
-  const fileRef = useRef()
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0]; if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => update({ badgeSrc: ev.target.result })
-    reader.readAsDataURL(file)
-  }
+  const [pickerOuvert, setPickerOuvert] = useState(false)
+  // Le badge pointe vers le répertoire d'assets ; badgeSrc n'apparaît plus que
+  // pour les projets antérieurs, qui embarquaient l'image en base64.
+  const apercu = blockImageSrc({ assetName: block.assetName, legacySrc: block.badgeSrc })
+
   return (
     <AccordionSection title="Badge conditionnel" defaultOpen={true}>
       <div className="flex flex-col gap-3">
         <Field label="Image du badge">
           <div className="flex items-center gap-2">
-            {block.badgeSrc ? (
-              <img src={block.badgeSrc} alt="" className="w-10 h-10 object-contain bg-surface-3 rounded border border-surface-5 p-1" />
+            {apercu ? (
+              <img src={apercu} alt="" className="w-10 h-10 object-contain bg-surface-3 rounded border border-surface-5 p-1" />
             ) : (
               <div className="w-10 h-10 bg-surface-3 rounded border border-dashed border-surface-6 flex items-center justify-center">
                 <Image size={12} className="text-gray-600" />
               </div>
             )}
-            <button className="btn-secondary text-xs" onClick={() => fileRef.current?.click()}>
-              {block.badgeSrc ? 'Changer' : 'Charger…'}
+            <button className="btn-secondary text-xs" onClick={() => setPickerOuvert(o => !o)}>
+              {block.assetName ?? (block.badgeSrc ? 'Remplacer' : 'Choisir…')}
             </button>
-            {block.badgeSrc && (
-              <button className="btn-icon text-gray-600 hover:text-red-400" onClick={() => update({ badgeSrc: null })}><X size={12} /></button>
-            )}
           </div>
-          <input ref={fileRef} type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+          {block.badgeSrc && !block.assetName && (
+            <p className="text-[10px] text-amber-500/90 mt-1.5 leading-relaxed">
+              Image intégrée au projet. Choisissez-la depuis votre répertoire d’assets
+              pour alléger le catalogue.
+            </p>
+          )}
+          {pickerOuvert && (
+            <div className="mt-2">
+              <AssetPicker
+                value={block.assetName ?? null}
+                onChange={(nom) => update({ assetName: nom, badgeSrc: nom ? null : block.badgeSrc })}
+                onClose={() => setPickerOuvert(false)}
+              />
+            </div>
+          )}
         </Field>
 
         <p className="text-xs font-semibold text-gray-400">Condition d'affichage</p>

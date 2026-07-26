@@ -5,6 +5,7 @@ import useCatalogStore from '../../store/catalogStore'
 import Select from '../UI/Select'
 import Divider from '../UI/Divider'
 import ImageSourcePanel from './ImageSourcePanel'
+import AssetSourcePanel from '../Assets/AssetSourcePanel'
 
 export default function DataImport() {
   const { rawData, columns, fileName, groupColumn, imageColumn, imageExtension,
@@ -185,6 +186,9 @@ export default function DataImport() {
 
           {/* ── Image source (dossier local, cloud, URL…) ────────── */}
           <ImageSourcePanel />
+
+          {/* ── Répertoire d'assets (logos, icônes, badges…) ─────── */}
+          <AssetSourcePanel />
 
           <Divider />
 
