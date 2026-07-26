@@ -4,7 +4,7 @@ import useCatalogStore from '../../store/catalogStore'
 import NumberInput from '../UI/NumberInput'
 import Select from '../UI/Select'
 import Divider from '../UI/Divider'
-import { calcVignetteDimensions, PAGE_FORMATS } from '../../utils/layoutCalculator'
+import { calcVignetteDimensions, PAGE_FORMATS, CUSTOM_FORMAT, CUSTOM_MIN_MM, CUSTOM_MAX_MM } from '../../utils/layoutCalculator'
 
 const GRID_PRESETS = [
   { label: '1×1', cols: 1, rows: 1, desc: '1 grande vignette / page' },
@@ -42,7 +42,13 @@ export default function GridSettings() {
               value={grid.pageFormat}
               onChange={(v) => setGrid({ pageFormat: v })}
               placeholder={null}
-              options={Object.keys(PAGE_FORMATS).map((k) => ({ value: k, label: k }))}
+              options={[
+                ...Object.entries(PAGE_FORMATS).map(([k, f]) => ({
+                  value: k,
+                  label: `${f.label} — ${f.width} × ${f.height} mm`,
+                })),
+                { value: CUSTOM_FORMAT, label: 'Format personnalisé…' },
+              ]}
             />
           </div>
           <div>
@@ -64,6 +70,31 @@ export default function GridSettings() {
             </div>
           </div>
         </div>
+
+        {/* Dimensions libres — saisies en portrait, l'orientation les échange */}
+        {grid.pageFormat === CUSTOM_FORMAT && (
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div>
+              <label className="label mb-2 block">Largeur</label>
+              <NumberInput
+                value={grid.customWidth ?? PAGE_FORMATS.A4.width}
+                onChange={(v) => setGrid({ customWidth: v })}
+                min={CUSTOM_MIN_MM} max={CUSTOM_MAX_MM} step={1} unit="mm"
+              />
+            </div>
+            <div>
+              <label className="label mb-2 block">Hauteur</label>
+              <NumberInput
+                value={grid.customHeight ?? PAGE_FORMATS.A4.height}
+                onChange={(v) => setGrid({ customHeight: v })}
+                min={CUSTOM_MIN_MM} max={CUSTOM_MAX_MM} step={1} unit="mm"
+              />
+            </div>
+            <p className="col-span-2 text-[11px] text-gray-600 -mt-1">
+              Dimensions à plat, en portrait : le bouton Paysage les échange.
+            </p>
+          </div>
+        )}
       </div>
 
       <Divider />
