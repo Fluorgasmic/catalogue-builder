@@ -14,8 +14,26 @@
 
 export const PT_PER_MM = 72 / 25.4
 
-/** Millimètres → points typographiques. */
-export const mmToPt = (mm) => mm * PT_PER_MM
+/**
+ * Arrondit un nombre avant de le confier au PDF.
+ *
+ * Les mesures issues d'un canvas produisent des flottants à dix-sept décimales
+ * (51.890136718750001…). Écrits tels quels, ils allongent le flux de contenu
+ * au-delà de la place réservée et corrompent les opérateurs voisins : on a vu
+ * une composante de couleur se souder à la sélection de police, rendant le
+ * texte invisible dans le PDF alors qu'il figurait bien dans le fichier.
+ *
+ * Quatre décimales de point valent un dix-millième de millimètre : très en
+ * deçà de ce qu'une presse peut restituer, et sans risque pour la sortie.
+ */
+export function arrondir(valeur, decimales = 4) {
+  if (!Number.isFinite(valeur)) return 0
+  const f = 10 ** decimales
+  return Math.round(valeur * f) / f
+}
+
+/** Millimètres → points typographiques, à précision maîtrisée. */
+export const mmToPt = (mm) => arrondir(mm * PT_PER_MM)
 
 /** Ordonnée PDF (origine en bas) d'un objet posé à `yMm` du haut. */
 export function flipY(yMm, heightMm, pageHeightMm) {
@@ -61,10 +79,12 @@ export function parseColor(couleur) {
   let hex = couleur.trim().replace(/^#/, '')
   if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('')
   if (!/^[0-9a-f]{6}$/i.test(hex)) return null
+  // Arrondi indispensable : 99/255 s'écrit sur dix-sept décimales et déborde
+  // de la place que le PDF réserve à l'opérateur de couleur.
   return {
-    r: parseInt(hex.slice(0, 2), 16) / 255,
-    g: parseInt(hex.slice(2, 4), 16) / 255,
-    b: parseInt(hex.slice(4, 6), 16) / 255,
+    r: arrondir(parseInt(hex.slice(0, 2), 16) / 255, 5),
+    g: arrondir(parseInt(hex.slice(2, 4), 16) / 255, 5),
+    b: arrondir(parseInt(hex.slice(4, 6), 16) / 255, 5),
   }
 }
 
@@ -75,7 +95,7 @@ export function parseColor(couleur) {
  */
 export function fitImage({ boxW, boxH, naturalW, naturalH, fit = 'contain' }) {
   if (!naturalW || !naturalH || fit === 'fill') {
-    return { x: 0, y: 0, w: boxW, h: boxH }
+    return { x: 0, y: 0, w: arrondir(boxW), h: arrondir(boxH) }
   }
   const ratioBoite = boxW / boxH
   const ratioImage = naturalW / naturalH
@@ -86,5 +106,5 @@ export function fitImage({ boxW, boxH, naturalW, naturalH, fit = 'contain' }) {
   const w = suivreLargeur ? boxW : boxH * ratioImage
   const h = suivreLargeur ? boxW / ratioImage : boxH
 
-  return { x: (boxW - w) / 2, y: (boxH - h) / 2, w, h }
+  return { x: arrondir((boxW - w) / 2), y: arrondir((boxH - h) / 2), w: arrondir(w), h: arrondir(h) }
 }

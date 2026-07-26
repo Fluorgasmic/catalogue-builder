@@ -8,6 +8,7 @@ import { buildFontFaceCSS } from '../FontLoader'
 import { usePagination } from '../../hooks/usePagination'
 import { calcVignetteDimensions } from '../../utils/layoutCalculator'
 import PageCanvas from '../PagePreview/PageCanvas'
+import { exportVectorPdf, policesNonEmbarquables } from '../../export/exportVectorPdf'
 
 // Wait for all <img> elements inside a container to finish loading
 function waitForImages(container, timeout = 8000) {
@@ -29,6 +30,10 @@ export default function ExportModal({ onClose }) {
   const pages = usePagination(rawData, grid, groupColumn)
   const dims = calcVignetteDimensions(grid, header, footer)
 
+  // 'vector' redessine la page (texte sélectionnable, net à tout zoom) ;
+  // 'raster' photographie le rendu du navigateur — l'ancien chemin, conservé
+  // le temps de valider le vectoriel sur un vrai tirage.
+  const [moteur, setMoteur] = useState('vector')
   const [quality, setQuality] = useState('high')  // 'standard' | 'high' | 'print'
   const [phase, setPhase] = useState('config')    // 'config' | 'exporting' | 'done' | 'error'
   const [progress, setProgress] = useState(0)
@@ -41,7 +46,42 @@ export default function ExportModal({ onClose }) {
   const zoomForQuality = { standard: 150, high: 200, print: 300 }
   const zoom = zoomForQuality[quality]
 
+  const telecharger = (octets) => {
+    const nom = `${(projectName || 'catalogue').replace(/\s+/g, '_')}.pdf`
+    const url = URL.createObjectURL(new Blob([octets], { type: 'application/pdf' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nom
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exporterVectoriel = useCallback(async () => {
+    setPhase('exporting')
+    setProgress(0)
+    setCurrentLabel('Mise en page…')
+    try {
+      const octets = await exportVectorPdf({
+        pages, dims,
+        state: useCatalogStore.getState(),
+        onProgress: (fait, total) => {
+          setCurrentLabel(`Page ${fait + 1} / ${total}`)
+          setProgress(Math.round((fait / total) * 100))
+        },
+      })
+      telecharger(octets)
+      setProgress(100)
+      setPhase('done')
+    } catch (err) {
+      console.error('Export vectoriel :', err)
+      setErrorMsg(err.message ?? 'Erreur inconnue')
+      setPhase('error')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages, dims, projectName])
+
   const handleExport = useCallback(async () => {
+    if (moteur === 'vector') return exporterVectoriel()
     abortRef.current = false
     setPhase('exporting')
     setProgress(0)
@@ -105,7 +145,7 @@ export default function ExportModal({ onClose }) {
       setErrorMsg(err.message ?? 'Erreur inconnue')
       setPhase('error')
     }
-  }, [pages, dims, grid, zoom, quality, projectName, customFonts])
+  }, [pages, dims, grid, zoom, quality, projectName, customFonts, moteur, exporterVectoriel])
 
   const handleCancel = () => {
     abortRef.current = true
@@ -139,7 +179,52 @@ export default function ExportModal({ onClose }) {
           {phase === 'config' && (
             <>
               <div>
-                <label className="label mb-3 block">Qualité d'export</label>
+                <label className="label mb-3 block">Rendu</label>
+                <div className="flex flex-col gap-2">
+                  {[
+                    { id: 'vector', label: 'Vectoriel', sub: 'Texte net à tout zoom et sélectionnable, fichier léger', badge: 'Recommandé' },
+                    { id: 'raster', label: 'Image', sub: 'Chaque page photographiée — reproduit tous les effets', badge: null },
+                  ].map(opt => (
+                    <label key={opt.id}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-colors
+                        ${moteur === opt.id ? 'border-accent bg-accent/10' : 'border-surface-5 hover:border-surface-6 bg-surface-3'}`}
+                    >
+                      <input type="radio" name="moteur" value={opt.id}
+                        checked={moteur === opt.id}
+                        onChange={() => setMoteur(opt.id)}
+                        className="accent-accent" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-100 flex items-center gap-2">
+                          {opt.label}
+                          {opt.badge && <span className="px-1.5 py-0.5 rounded text-[9px] bg-accent/20 text-accent">{opt.badge}</span>}
+                        </p>
+                        <p className="text-[11px] text-gray-500">{opt.sub}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                {moteur === 'vector' && (
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    {policesNonEmbarquables(customFonts).length > 0 && (
+                      <p className="text-[11px] text-amber-400/90 leading-relaxed">
+                        {policesNonEmbarquables(customFonts).join(', ')} — un PDF ne sait pas
+                        embarquer les polices web (woff, woff2) : elles seront remplacées.
+                        Rechargez-les en .ttf ou .otf, ou choisissez le rendu Image.
+                      </p>
+                    )}
+                    <p className="text-[11px] text-gray-600 leading-relaxed">
+                      Les coins arrondis des fonds de blocs sortent carrés en vectoriel.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className={moteur === 'vector' ? 'opacity-40 pointer-events-none' : ''}>
+                <label className="label mb-3 block">
+                  Qualité d'export
+                  {moteur === 'vector' && <span className="ml-2 text-[10px] text-gray-600 normal-case">sans objet en vectoriel</span>}
+                </label>
                 <div className="flex flex-col gap-2">
                   {[
                     { id: 'standard', label: 'Standard',  sub: '150 DPI — rapide, fichier léger',  badge: null },
