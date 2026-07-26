@@ -69,6 +69,14 @@ const httpBaseProvider = {
     return 0 // inconnu pour une base URL distante
   },
 
+  // Une base URL n'expose pas d'index de son contenu : on ne peut pas proposer
+  // de parcourir les assets, seulement d'en saisir le nom.
+  canList: false,
+
+  list() {
+    return []
+  },
+
   disconnect() {},
 }
 

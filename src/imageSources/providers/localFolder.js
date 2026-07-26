@@ -15,7 +15,26 @@ const IMAGE_EXTS = new Set([
   'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'bmp', 'ico',
 ])
 
-const IDB_KEY = 'cb-local-dir-handle'
+// Une clé par emplacement : produits et assets pointent sur deux dossiers
+// distincts, et connecter l'un ne doit pas déconnecter l'autre.
+const LEGACY_IDB_KEY = 'cb-local-dir-handle'
+
+function idbKey(slot = 'products') {
+  return `cb-dir-handle-${slot}`
+}
+
+/** Lit le handle du dossier, en retombant sur l'ancienne clé unique pour les produits. */
+async function readHandle(slot) {
+  try {
+    const handle = await idbGet(idbKey(slot))
+    if (handle) return handle
+    // Projets antérieurs aux emplacements : le dossier produits était seul.
+    if (slot === 'products') return await idbGet(LEGACY_IDB_KEY)
+    return null
+  } catch {
+    return null
+  }
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -66,9 +85,9 @@ const localFolderProvider = {
     return typeof window !== 'undefined' && 'showDirectoryPicker' in window
   },
 
-  async connect() {
+  async connect(config = {}, slot = 'products') {
     const handle = await window.showDirectoryPicker({ mode: 'read' })
-    await idbSet(IDB_KEY, handle) // persiste pour reconnexion 1 clic
+    await idbSet(idbKey(slot), handle) // persiste pour reconnexion 1 clic
     return buildConnection(handle)
   },
 
@@ -77,9 +96,8 @@ const localFolderProvider = {
    * - permission 'granted'  → reconnexion transparente
    * - permission 'prompt'   → needsUserAction=true (bouton "Reconnecter")
    */
-  async restore() {
-    let handle
-    try { handle = await idbGet(IDB_KEY) } catch { handle = null }
+  async restore(serialized = {}, slot = 'products') {
+    const handle = await readHandle(slot)
     if (!handle) return { connection: null, needsUserAction: false }
 
     const state = await permissionState(handle)
@@ -133,12 +151,24 @@ const localFolderProvider = {
     return conn?._count ?? conn?.handleCache?.size ?? 0
   },
 
-  disconnect(conn) {
+  /** Le dossier sait énumérer son contenu : permet de choisir un asset par sa vignette. */
+  canList: true,
+
+  list(conn) {
+    if (!conn?.handleCache) return []
+    // handleCache est indexé en minuscules ; on ressort le nom réel du fichier.
+    return [...conn.handleCache.values()]
+      .map((h) => h.name)
+      .sort((a, b) => a.localeCompare(b, 'fr', { numeric: true }))
+  },
+
+  disconnect(conn, slot = 'products') {
     if (conn?.urlCache) {
       for (const url of conn.urlCache.values()) if (url) URL.revokeObjectURL(url)
       conn.urlCache.clear()
     }
-    idbDel(IDB_KEY).catch(() => {})
+    idbDel(idbKey(slot)).catch(() => {})
+    if (slot === 'products') idbDel(LEGACY_IDB_KEY).catch(() => {})
   },
 }
 

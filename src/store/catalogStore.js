@@ -82,6 +82,15 @@ const useCatalogStore = create(
       setImageSource: (partial) => set((s) => ({ imageSource: { ...s.imageSource, ...partial } })),
       setImageSourceConfig: (config) => set((s) => ({ imageSource: { ...s.imageSource, config: { ...s.imageSource.config, ...config } } })),
 
+      // ── Répertoire d'assets de mise en page ───────────────────
+      // Logos, icônes, badges, fonds : tout visuel qui ne vient pas du fichier
+      // Excel. Source séparée des photos produits, car ni le même contenu ni
+      // le même emplacement. Les blocs n'en stockent que le NOM de fichier,
+      // ce qui garde le projet léger et enregistrable.
+      assetSource: { providerId: 'local', config: {} },
+      setAssetSource: (partial) => set((s) => ({ assetSource: { ...s.assetSource, ...partial } })),
+      setAssetSourceConfig: (config) => set((s) => ({ assetSource: { ...s.assetSource, config: { ...s.assetSource.config, ...config } } })),
+
       // Dérivé pour compat des composants de rendu : renvoie une valeur "basePath"
       // interprétable par buildImageUrl ('__local__', une URL, ou '').
       imageBasePath: '',
@@ -190,6 +199,7 @@ const useCatalogStore = create(
           footer: s.footer,
           groupColumn: s.groupColumn,
           imageSource: s.imageSource,
+          assetSource: s.assetSource,
           imageColumn: s.imageColumn,
           imageExtension: s.imageExtension,
           savedColors: s.savedColors,
@@ -210,6 +220,7 @@ const useCatalogStore = create(
             footer: data.footer ?? DEFAULT_FOOTER,
             groupColumn: data.groupColumn ?? null,
             imageSource,
+            assetSource: data.assetSource ?? { providerId: 'local', config: {} },
             imageBasePath: deriveBasePath(imageSource),
             imageColumn: data.imageColumn ?? null,
             imageExtension: data.imageExtension ?? '.jpg',
@@ -228,6 +239,7 @@ const useCatalogStore = create(
         rawData: [], columns: [], fileName: null, groupColumn: null,
         imageColumn: null, imageExtension: '.jpg',
         imageSource: { providerId: 'http', config: { baseUrl: '' } },
+        assetSource: { providerId: 'local', config: {} },
         imageBasePath: '',
         grid: DEFAULT_GRID,
         vignetteBlocks: [], selectedBlockId: null,
@@ -250,6 +262,7 @@ const useCatalogStore = create(
         customFonts: s.customFonts,
         projectName: s.projectName,
         imageSource: s.imageSource,
+        assetSource: s.assetSource,
         imageExtension: s.imageExtension,
         groupColumn: s.groupColumn,
       }),
