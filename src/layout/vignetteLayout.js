@@ -76,6 +76,29 @@ export function layoutVignette({ blocks = [], row, widthMm, heightMm, measurerFo
   return primitives.map(enMillimetres)
 }
 
+/**
+ * Blocs posés librement dans une zone, chacun avec ses propres coordonnées et
+ * sa propre largeur — c'est le mode des en-têtes et pieds de page, déjà en
+ * millimètres. Même vocabulaire de blocs que la vignette, autre disposition.
+ *
+ * @param {object[]} p.blocks   blocs portant x, y, w, h en millimètres
+ * @param {number} p.widthMm    largeur par défaut d'un bloc sans `w`
+ */
+export function layoutFreeBlocks({ blocks = [], row, widthMm, heightMm, measurerFor, resolveImage }) {
+  const hPx = mmToPx(heightMm)
+  const primitives = []
+
+  for (const block of blocks) {
+    if (block.visible === false) continue
+    const largeurPx = block.w != null ? mmToPx(block.w) : mmToPx(widthMm)
+    primitives.push(...primitivesDuBloc(block, row, mmToPx(block.y ?? 0), largeurPx, hPx, {
+      measurerFor, resolveImage, xPx: mmToPx(block.x ?? 0),
+    }))
+  }
+
+  return primitives.map(enMillimetres)
+}
+
 function primitivesDuBloc(block, row, yPx, wPx, hPx, { measurerFor, resolveImage, xPx = 0 }) {
   switch (block.type) {
     case 'text':
