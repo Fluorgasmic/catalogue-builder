@@ -89,6 +89,36 @@ describe('offsetPrimitives', () => {
   })
 })
 
+describe('layoutPage — gabarits', () => {
+  const troisPuisSix = { bands: [
+    { heightPct: 50, columns: 3, rows: 1 },
+    { heightPct: 50, columns: 3, rows: 2 },
+  ] }
+
+  it('pose les vignettes aux emplacements du gabarit', () => {
+    const neuf = Array.from({ length: 9 }, (_, i) => ({ Reference: `R${i}` }))
+    const p = layoutPage({
+      rows: neuf, grid, header, footer, vignetteBlocks: blocsVignette, dims,
+      measurerFor, template: troisPuisSix,
+    })
+    expect(p.filter(x => x.kind === 'text')).toHaveLength(9)
+  })
+
+  it('met en page chaque vignette à la taille de son emplacement', () => {
+    // Sur un gabarit mixte, une vignette du haut est deux fois plus haute que
+    // celles du bas : c'est tout l'intérêt, et le texte doit suivre.
+    const cases = gridCells(grid, dims, troisPuisSix)
+    expect(cases[0].h).toBeGreaterThan(cases[3].h)
+    expect(cases[0].w).toBeCloseTo(cases[3].w, 5)
+  })
+
+  it('garde la grille du projet quand aucun gabarit n\'est fourni', () => {
+    const avec = gridCells(grid, dims, null)
+    expect(avec).toHaveLength(grid.columns * grid.rows)
+    expect(avec[0].w).toBeCloseTo(dims.vignetteWidth, 5)
+  })
+})
+
 describe('layoutPage', () => {
   it('pose une vignette par produit, à sa case', () => {
     const p = poser()

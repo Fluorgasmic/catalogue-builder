@@ -10,6 +10,7 @@
  */
 
 import { layoutVignette, layoutFreeBlocks } from './vignetteLayout'
+import { templateSlots, contentZone, uniformTemplate } from '../document/pageTemplate'
 
 /** Substitue les variables de gabarit d'un bloc statique. */
 export function resolveTemplateVars(blocks, { pageIndex = 0, totalPages = 1, groupLabel = '' } = {}) {
@@ -33,23 +34,15 @@ export function offsetPrimitives(primitives, dx, dy) {
 }
 
 /**
- * Positions des cases de la grille, en millimètres depuis le coin de la page.
- * L'ordre suit la lecture : de gauche à droite, puis de haut en bas.
+ * Emplacements de vignettes d'une page, en millimètres.
+ *
+ * Sans gabarit, la grille uniforme du projet s'applique — le comportement
+ * historique. Avec, c'est le gabarit qui commande, et les emplacements
+ * peuvent alors avoir des tailles différentes sur une même page.
  */
-export function gridCells(grid, dims) {
-  const { margins, columns, rows, gutterH, gutterV } = grid
-  const topContenu = margins.top + dims.headerH
-  const cases = []
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < columns; c++) {
-      cases.push({
-        x: margins.left + c * (dims.vignetteWidth + gutterH),
-        y: topContenu + r * (dims.vignetteHeight + gutterV),
-      })
-    }
-  }
-  return cases
+export function gridCells(grid, dims, template) {
+  const gabarit = template ?? uniformTemplate(grid)
+  return templateSlots(gabarit, contentZone(grid, dims), grid)
 }
 
 /**
@@ -72,7 +65,7 @@ export function gridCells(grid, dims) {
 export function layoutPage({
   rows = [], grid, header, footer, headerBlocks = [], footerBlocks = [], vignetteBlocks = [],
   dims, pageIndex = 0, totalPages = 1, groupLabel = '',
-  measurerFor, resolveImage, bleedMm = 0,
+  measurerFor, resolveImage, bleedMm = 0, template = null,
 }) {
   const primitives = []
   const vars = { pageIndex, totalPages, groupLabel }
@@ -94,21 +87,24 @@ export function layoutPage({
     ))
   }
 
-  // ── Grille de vignettes ──────────────────────────────────────────────────
-  const cases = gridCells(grid, dims)
+  // ── Vignettes, posées aux emplacements du gabarit ────────────────────────
+  // Chaque emplacement porte ses propres dimensions : sur un gabarit mixte,
+  // une vignette du haut n'a pas la taille de celles du bas, et sa mise en
+  // page est donc recalculée à sa mesure.
+  const emplacements = gridCells(grid, dims, template)
   rows.forEach((row, i) => {
-    const cellule = cases[i]
-    if (!cellule) return
+    const place = emplacements[i]
+    if (!place) return
     primitives.push(...offsetPrimitives(
       layoutVignette({
         blocks: vignetteBlocks,
         row,
-        widthMm: dims.vignetteWidth,
-        heightMm: dims.vignetteHeight,
+        widthMm: place.w,
+        heightMm: place.h,
         measurerFor,
         resolveImage: (b) => resolveImage?.(b, row) ?? null,
       }),
-      cellule.x, cellule.y,
+      place.x, place.y,
     ))
   })
 

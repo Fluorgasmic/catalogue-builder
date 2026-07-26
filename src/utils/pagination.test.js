@@ -37,6 +37,59 @@ describe('paginate — sans regroupement', () => {
   })
 })
 
+describe('paginate — capacité par gabarit', () => {
+  const troisPuisSix = { bands: [
+    { heightPct: 50, columns: 3, rows: 1 },
+    { heightPct: 50, columns: 3, rows: 2 },
+  ] } // 9 emplacements
+
+  it('remplit selon la capacité du gabarit, pas celle de la grille', () => {
+    // La grille dit 6 par page, le gabarit en accepte 9 : c'est lui qui décide.
+    const pages = paginate(rows(20), grid, null, { templateFor: () => troisPuisSix })
+    expect(pages.map(p => p.rows.length)).toEqual([9, 9, 2])
+  })
+
+  it('attache son gabarit à chaque page', () => {
+    const pages = paginate(rows(5), grid, null, { templateFor: () => troisPuisSix })
+    expect(pages[0].template).toBe(troisPuisSix)
+  })
+
+  it('applique un gabarit différent par catégorie', () => {
+    // Le cas type : « chocolats » mis en avant sur 9 emplacements, « bonbons »
+    // en grille uniforme à 6.
+    const data = [
+      ...rows(9).map(r => ({ ...r, Famille: 'Chocolats' })),
+      ...rows(7).map(r => ({ ...r, Famille: 'Bonbons' })),
+    ]
+    const pages = paginate(data, grid, 'Famille', {
+      templateFor: (cle) => cle === 'Chocolats' ? troisPuisSix : undefined,
+    })
+    expect(pages.map(p => `${p.groupLabel}:${p.rows.length}`))
+      .toEqual(['Chocolats:9', 'Bonbons:6', 'Bonbons:1'])
+  })
+
+  it('retombe sur la grille du projet quand aucun gabarit n\'est fourni', () => {
+    const sans = paginate(rows(13), grid, null)
+    const avecResolveurVide = paginate(rows(13), grid, null, { templateFor: () => undefined })
+    expect(avecResolveurVide.map(p => p.rows.length)).toEqual(sans.map(p => p.rows.length))
+  })
+
+  it('numérote les pages en continu à travers les groupes', () => {
+    const data = [
+      ...rows(3).map(r => ({ ...r, Famille: 'A' })),
+      ...rows(3).map(r => ({ ...r, Famille: 'B' })),
+    ]
+    const pages = paginate(data, grid, 'Famille')
+    expect(pages.map(p => p.index)).toEqual([0, 1])
+  })
+
+  it('ne produit aucune page pour un gabarit sans emplacement', () => {
+    // Et surtout : ne boucle pas indéfiniment.
+    const vide = { bands: [{ heightPct: 100, columns: 0, rows: 0 }] }
+    expect(paginate(rows(10), grid, null, { templateFor: () => vide })).toEqual([])
+  })
+})
+
 describe('paginate — regroupement par colonne', () => {
   const byFamily = [
     ...rows(2).map(r => ({ ...r, Famille: 'Chaises' })),

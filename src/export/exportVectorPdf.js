@@ -61,6 +61,7 @@ export async function exportVectorPdf({ pages, dims, state, onProgress }) {
       measurerFor,
       resolveImage: (block, row) => resolveBlockImage(block, row, contexte),
       bleedMm: prepress?.bleed ?? 0,
+      template: page.template ?? null,
     })
   })
 
