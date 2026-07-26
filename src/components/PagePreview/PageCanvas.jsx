@@ -3,12 +3,15 @@ import { mmToCssPx, calcVignetteDimensions } from '../../utils/layoutCalculator'
 import useCatalogStore from '../../store/catalogStore'
 import VignettePlaceholder from './VignettePlaceholder'
 import { AnyBlock } from '../VignetteBuilder/blockRenderer'
+import { blockImageSrc } from '../../utils/assetUrl'
 
 /**
  * Renders one page of the catalogue at the given zoom level.
  */
 export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides = true }) {
   const { grid, header, footer, headerBlocks, footerBlocks, imageBasePath, imageColumn, imageExtension } = useCatalogStore()
+
+  const logoSrc = blockImageSrc({ assetName: header.logo?.assetName, legacySrc: header.logo?.src })
 
   const dims = useMemo(
     () => calcVignetteDimensions(grid, header, footer),
@@ -85,8 +88,8 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
                 backgroundColor: header.bgColor === 'transparent' ? undefined : header.bgColor,
               }}
             >
-              {/* Logo */}
-              {header.logo?.enabled && header.logo?.src && (
+              {/* Logo : référence d'asset, avec repli sur le base64 hérité */}
+              {header.logo?.enabled && logoSrc && (
                 <div style={{
                   width: mmToCssPx(header.logo.width ?? 24, zoom),
                   height: mmToCssPx(header.logo.height ?? 10, zoom),
@@ -100,7 +103,7 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
                   order: header.logo.position === 'right' ? 9 : 0,
                 }}>
                   <img
-                    src={header.logo.src}
+                    src={logoSrc}
                     alt="Logo"
                     crossOrigin="anonymous"
                     style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}

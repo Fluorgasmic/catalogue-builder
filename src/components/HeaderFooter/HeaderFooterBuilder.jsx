@@ -916,6 +916,31 @@ function GeneralSettings({ section, config, setConfig }) {
           </div>
         </EditorSection>
 
+        {/* Logo d'en-tête hérité de l'ancien éditeur : toujours affiché sur la
+            page, mais plus éditable nulle part depuis le passage aux blocs.
+            Section proposée uniquement s'il en existe un, pour permettre de le
+            re-pointer vers un asset ou de le retirer — un logo embarqué en
+            base64 pèse à lui seul plus que la limite d'enregistrement. */}
+        {isHeader && (config.logo?.src || config.logo?.assetName) && (
+          <EditorSection title="Logo de l'en-tête">
+            <div className="flex flex-col gap-2">
+              <ImageUpload
+                assetName={config.logo?.assetName}
+                legacySrc={config.logo?.src}
+                onChange={(nom) => setConfig({
+                  logo: { ...config.logo, assetName: nom, src: nom ? null : config.logo?.src },
+                })}
+              />
+              <button
+                className="btn-ghost text-xs gap-1 self-start"
+                onClick={() => setConfig({ logo: { ...config.logo, enabled: false, src: null, assetName: null } })}
+              >
+                <X size={12} /> Retirer le logo
+              </button>
+            </div>
+          </EditorSection>
+        )}
+
         <EditorSection title="Fond">
           <div className="flex items-center gap-3">
             <label className="label">Couleur de fond</label>
