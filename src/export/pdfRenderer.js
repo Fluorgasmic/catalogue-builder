@@ -11,7 +11,7 @@
  * layoutVignette, partagés avec l'aperçu.
  */
 
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb, cmyk } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import { mmToPt, flipY, baselineY, alignedX, parseColor, fitImage } from './pdfPrimitives'
 import { prepressGeometry, prepressMarks } from './prepress'
@@ -151,27 +151,37 @@ function definirBoites(page, geo) {
   page.setTrimBox(...enPdf(geo.trimBox))
 }
 
+/**
+ * Couleur d'une primitive. Les marques de prépresse sont exprimées en CMJN
+ * pour sortir sur toutes les plaques ; le reste du catalogue est en RVB.
+ */
+function couleurDe(p, champ = 'fill') {
+  if (p.cmyk) return cmyk(p.cmyk.c, p.cmyk.m, p.cmyk.y, p.cmyk.k)
+  const c = parseColor(p[champ])
+  return c ? rgb(c.r, c.g, c.b) : null
+}
+
 function dessinerRect(page, p, pageHeightMm) {
-  const couleur = parseColor(p.fill)
+  const couleur = couleurDe(p)
   if (!couleur || p.w <= 0 || p.h <= 0) return
   page.drawRectangle({
     x: mmToPt(p.x),
     y: flipY(p.y, p.h, pageHeightMm),
     width: mmToPt(p.w),
     height: mmToPt(p.h),
-    color: rgb(couleur.r, couleur.g, couleur.b),
+    color: couleur,
   })
 }
 
 /** Repère de repérage : cercle non rempli, tracé au trait. */
 function dessinerCercle(page, p, pageHeightMm) {
-  const couleur = parseColor(p.stroke)
+  const couleur = couleurDe(p, 'stroke')
   if (!couleur || p.r <= 0) return
   page.drawCircle({
     x: mmToPt(p.x),
     y: mmToPt(pageHeightMm - p.y),
     size: mmToPt(p.r),
-    borderColor: rgb(couleur.r, couleur.g, couleur.b),
+    borderColor: couleur,
     borderWidth: mmToPt(p.thickness ?? 0.1),
   })
 }

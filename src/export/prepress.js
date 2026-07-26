@@ -30,6 +30,21 @@ export const RAYON_REPERE_MM = 2.5
 export const EPAISSEUR_TRAIT_MM = 0.088
 
 /**
+ * Couleur de repérage : 100 % de chacune des séparations.
+ *
+ * Ce n'est pas une encre supplémentaire — aucune plaque en plus. L'objet
+ * s'imprime sur TOUTES les plaques déjà présentes, ce qui permet justement de
+ * vérifier qu'elles se superposent. En quadrichromie cela vaut C100 M100 J100
+ * N100 ; du noir simple ne sortirait que sur la plaque noire, rendant le
+ * repère inutile.
+ *
+ * Réserve : la façon strictement correcte est l'espace `/Separation /All`, qui
+ * couvre aussi les tons directs d'un travail à cinq plaques ou plus. pdf-lib
+ * ne l'expose pas ; le CMJN à 400 % donne le même résultat en quadri.
+ */
+export const REPERAGE = { c: 1, m: 1, y: 1, k: 1 }
+
+/**
  * Dimensions du support et décalage à appliquer au contenu.
  *
  * @param {object} p
@@ -85,14 +100,14 @@ export function cropMarks(geo, { trimW, trimH }) {
       kind: 'rect',
       x: c.sx < 0 ? c.x - fin : c.x + debut,
       y: c.y - e / 2,
-      w: LONGUEUR_TRAIT_MM, h: e, fill: '#000000',
+      w: LONGUEUR_TRAIT_MM, h: e, cmyk: REPERAGE,
     })
     // Segment vertical, prolongeant le bord gauche ou droit
     traits.push({
       kind: 'rect',
       x: c.x - e / 2,
       y: c.sy < 0 ? c.y - fin : c.y + debut,
-      w: e, h: LONGUEUR_TRAIT_MM, fill: '#000000',
+      w: e, h: LONGUEUR_TRAIT_MM, cmyk: REPERAGE,
     })
   }
 
@@ -118,10 +133,10 @@ export function registrationMarks(geo, { trimW, trimH }) {
 
   const marques = []
   for (const c of centres) {
-    marques.push({ kind: 'circle', x: c.x, y: c.y, r, thickness: e, stroke: '#000000' })
+    marques.push({ kind: 'circle', x: c.x, y: c.y, r, thickness: e, cmyk: REPERAGE })
     // Croix débordant légèrement du cercle, comme le veut l'usage
-    marques.push({ kind: 'rect', x: c.x - r * 1.4, y: c.y - e / 2, w: r * 2.8, h: e, fill: '#000000' })
-    marques.push({ kind: 'rect', x: c.x - e / 2, y: c.y - r * 1.4, w: e, h: r * 2.8, fill: '#000000' })
+    marques.push({ kind: 'rect', x: c.x - r * 1.4, y: c.y - e / 2, w: r * 2.8, h: e, cmyk: REPERAGE })
+    marques.push({ kind: 'rect', x: c.x - e / 2, y: c.y - r * 1.4, w: e, h: r * 2.8, cmyk: REPERAGE })
   }
   return marques
 }

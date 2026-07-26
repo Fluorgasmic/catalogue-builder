@@ -97,6 +97,16 @@ describe('cropMarks', () => {
     }
   })
 
+  it('trace en couleur de repérage, pas en noir simple', () => {
+    // Du noir simple ne sortirait que sur la plaque noire : le trait serait
+    // inutilisable pour caler les autres. La couleur de repérage vaut 100 %
+    // de chaque séparation — sans ajouter de plaque.
+    for (const t of traits) {
+      expect(t.cmyk).toEqual({ c: 1, m: 1, y: 1, k: 1 })
+      expect(t.fill).toBeUndefined()
+    }
+  })
+
   it('donne aux traits la longueur conventionnelle', () => {
     for (const t of traits) {
       expect(Math.max(t.w, t.h)).toBeCloseTo(LONGUEUR_TRAIT_MM, 6)
@@ -119,6 +129,10 @@ describe('registrationMarks', () => {
     const cy = geo.offsetY + A4.trimH / 2
     expect(cercles.filter((c) => Math.abs(c.x - cx) < 0.001)).toHaveLength(2) // haut et bas
     expect(cercles.filter((c) => Math.abs(c.y - cy) < 0.001)).toHaveLength(2) // gauche et droite
+  })
+
+  it('trace les repères en couleur de repérage', () => {
+    for (const m of reperes) expect(m.cmyk).toEqual({ c: 1, m: 1, y: 1, k: 1 })
   })
 
   it('reste en dehors du format fini', () => {
