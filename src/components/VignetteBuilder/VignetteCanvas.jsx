@@ -25,9 +25,11 @@ export default function VignetteCanvas({ dims, row, showGuides, zoom = 100 }) {
   const scale = wPx / mmToCssPx(dims.vignetteWidth, 100)  // px/mm scale at display size
   const hPx = mmToCssPx(dims.vignetteHeight, 100) * scale
 
-  // mm ↔ px helpers at this canvas scale
-  const mmToPx = (mm) => mm * scale
-  const pxToMmLocal = (px) => px / scale
+  // mm ↔ px à l'échelle du canevas. Les coordonnées des blocs sont en
+  // millimètres (format de projet v3) : la conversion doit donc passer par la
+  // vraie équivalence 25,4 mm = 96 px, et pas seulement par le facteur de zoom.
+  const mmToPx = (mm) => mmToCssPx(mm, 100) * scale
+  const pxToMmLocal = (px) => px / (mmToCssPx(1, 100) * scale)
 
   // ── Drag start ────────────────────────────────────────────────────────────
   const startDrag = useCallback((e, blockId, mode, handle = null) => {

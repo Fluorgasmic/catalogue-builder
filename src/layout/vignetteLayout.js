@@ -6,17 +6,19 @@
  * l'éditeur de pages la consommera pour manipuler une page comme de la donnée
  * plutôt que comme du CSS calculé au vol.
  *
- * UNITÉS — deux conventions coexistent dans le modèle, attention :
- *   · les blocs de vignette (x, y, fontSize, paddings…) sont en PIXELS CSS
- *     à 96 dpi, malgré des libellés d'interface qui annoncent des millimètres ;
- *   · les primitives produites ici sont en MILLIMÈTRES, origine en haut à
- *     gauche de la vignette — l'unité de l'impression.
- * La conversion se fait donc à la sortie, en un seul endroit.
+ * UNITÉS — deux échelles coexistent, et il faut savoir laquelle on manipule :
+ *   · les POSITIONS des blocs (x, y) sont en millimètres depuis le format v3 ;
+ *   · les TAILLES typographiques (fontSize, paddings, épaisseurs) restent en
+ *     pixels CSS à 96 dpi, l'unité naturelle d'une feuille de style.
+ *   · les primitives produites sont en MILLIMÈTRES, origine en haut à gauche
+ *     de la vignette — l'unité de l'impression.
+ * Le calcul interne se fait en pixels et la conversion en sortie, en un seul
+ * endroit ; les positions en millimètres sont donc converties à l'entrée.
  */
 
 import { textMetrics, imageHeight, separatorMetrics, flowBlockHeight, LINE_HEIGHT } from '../blocks/blockMetrics'
 import { layoutText } from './textLayout'
-import { pxToMm } from './measureText'
+import { pxToMm, mmToPx } from './measureText'
 
 /** Marge de sécurité avant de renoncer à poser un bloc, en px — cf. BlockVignette. */
 const SAFETY_PX = 4
@@ -63,9 +65,11 @@ export function layoutVignette({ blocks = [], row, widthMm, heightMm, measurerFo
   }
 
   // ── Blocs libres : posés à leurs coordonnées propres, par-dessus le flux ──
+  // Ces coordonnées sont en millimètres (format v3) alors que le calcul
+  // interne travaille en pixels : on les convertit à l'entrée.
   for (const block of libres) {
-    primitives.push(...primitivesDuBloc(block, row, block.y ?? 0, wPx, hPx, {
-      measurerFor, resolveImage, xPx: block.x ?? 0,
+    primitives.push(...primitivesDuBloc(block, row, mmToPx(block.y ?? 0), wPx, hPx, {
+      measurerFor, resolveImage, xPx: mmToPx(block.x ?? 0),
     }))
   }
 

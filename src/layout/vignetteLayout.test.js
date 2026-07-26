@@ -50,13 +50,14 @@ describe('layoutVignette — unités', () => {
     }
   })
 
-  it('convertit les positions des blocs libres depuis les pixels CSS', () => {
-    // Le modèle stocke x en px CSS malgré un libellé d'interface en mm :
-    // 10 px valent 2,65 mm, et c'est bien ce qui doit sortir.
+  it('place un bloc libre à la position demandée, en millimètres', () => {
+    // Depuis le format v3, x et y sont des millimètres : 10 signifie 10 mm.
+    // Auparavant la valeur était appliquée en pixels CSS et le bloc atterrissait
+    // à 2,6 mm, alors que le champ annonçait des millimètres.
     const badge = { ...createBlock('badge', ['Reference']), x: 10, y: 10, conditionOperator: 'notempty', conditionColumn: 'Reference' }
     const [p] = poser([badge], { resolveImage: () => 'logo.png' })
-    expect(p.x).toBeCloseTo(pxToMm(10), 4)
-    expect(p.y).toBeCloseTo(pxToMm(10), 4)
+    expect(p.x).toBeCloseTo(10, 4)
+    expect(p.y).toBeCloseTo(10, 4)
   })
 })
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { migrateProject, PROJECT_VERSION } from '../blocks/migrations'
 
 // ─── Default values ────────────────────────────────────────────────────────────
 
@@ -189,7 +190,7 @@ const useCatalogStore = create(
       exportProject: () => {
         const s = get()
         return JSON.stringify({
-          version: 2,
+          version: PROJECT_VERSION,
           projectName: s.projectName,
           grid: s.grid,
           vignetteBlocks: s.vignetteBlocks,
@@ -208,7 +209,10 @@ const useCatalogStore = create(
 
       importProject: (json) => {
         try {
-          const data = typeof json === 'string' ? JSON.parse(json) : json
+          const brut = typeof json === 'string' ? JSON.parse(json) : json
+          // Un projet antérieur stockait les coordonnées de vignette en pixels :
+          // sans conversion, tous les blocs libres se décaleraient.
+          const data = migrateProject(brut)
           const imageSource = data.imageSource ?? migrateImageSource(data.imageBasePath)
           set({
             projectName: data.projectName ?? 'Importé',
@@ -251,6 +255,10 @@ const useCatalogStore = create(
     }),
     {
       name: 'catalogue-builder-v1',
+      version: PROJECT_VERSION,
+      // Le contenu déjà présent dans le navigateur suit la même migration que
+      // les projets importés — sinon les deux chemins divergeraient.
+      migrate: (persisted, version) => migrateProject({ ...persisted, version }),
       partialize: (s) => ({
         grid: s.grid,
         vignetteBlocks: s.vignetteBlocks,

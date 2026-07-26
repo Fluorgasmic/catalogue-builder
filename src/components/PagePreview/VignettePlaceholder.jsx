@@ -47,7 +47,9 @@ export default function VignettePlaceholder({ row, vignetteW, vignetteH, zoom, i
 function BlockVignette({ wPx, hPx, scale, row, blocks, imageBasePath, imageColumn, imageExtension }) {
   const allFlow = blocks.filter(b => b.position !== 'absolute' && b.visible !== false)
   const absBlocks = blocks.filter(b => b.position === 'absolute' && b.visible !== false)
-  const mmToPx = (mm) => mm * scale
+  // Coordonnées des blocs en millimètres (format v3) : conversion réelle,
+  // comme pour les blocs d'en-tête, et non simple application du zoom.
+  const mmToPx = (mm) => mmToCssPx(mm, scale * 100)
 
   // Only render flow blocks that fully fit within the vignette height.
   // Use a scale-aware safety margin: at higher export zoom (scale 2–3) the
