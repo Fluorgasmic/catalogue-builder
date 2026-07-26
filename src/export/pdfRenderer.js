@@ -14,6 +14,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import { mmToPt, flipY, baselineY, alignedX, parseColor, fitImage } from './pdfPrimitives'
+import { prepressGeometry, prepressMarks } from './prepress'
 
 /** Métriques de repli si la police n'en expose pas — proportions latines usuelles. */
 const METRICS_DEFAUT = { ascent: 718, descent: -207, unitsPerEm: 1000 }
@@ -97,26 +98,57 @@ async function octetsDeDataUrl(src) {
  */
 export async function renderPdf({
   pages, pageWidthMm, pageHeightMm, customFonts = [], loadImage, metadata = {},
+  prepress = {},
 }) {
   const doc = await PDFDocument.create()
   doc.registerFontkit(fontkit)
   if (metadata.title) doc.setTitle(metadata.title)
   doc.setProducer('Catalogue Builder')
 
+  const trim = { trimW: pageWidthMm, trimH: pageHeightMm }
+  const marquesDemandees = Boolean(prepress.cropMarks || prepress.registration)
+  const geo = prepressGeometry({ ...trim, bleed: prepress.bleed ?? 0, marks: marquesDemandees })
+  const marques = prepressMarks(geo, trim, prepress)
+
   const polices = await preparerPolices(doc, pages, customFonts)
   const imagesEmbarquees = new Map()
 
   for (const primitives of pages) {
-    const page = doc.addPage([mmToPt(pageWidthMm), mmToPt(pageHeightMm)])
+    const page = doc.addPage([mmToPt(geo.mediaW), mmToPt(geo.mediaH)])
+    definirBoites(page, geo)
 
-    for (const p of primitives) {
-      if (p.kind === 'rect') dessinerRect(page, p, pageHeightMm)
-      else if (p.kind === 'text') dessinerTexte(page, p, pageHeightMm, polices)
-      else if (p.kind === 'image') await dessinerImage(doc, page, p, pageHeightMm, loadImage, imagesEmbarquees)
+    // Le contenu est mis en page au format fini ; sur le support il est
+    // décalé de la marge de fond perdu et de traits.
+    const contenu = primitives.map((p) => ({ ...p, x: p.x + geo.offsetX, y: p.y + geo.offsetY }))
+
+    for (const p of [...contenu, ...marques]) {
+      if (p.kind === 'rect') dessinerRect(page, p, geo.mediaH)
+      else if (p.kind === 'circle') dessinerCercle(page, p, geo.mediaH)
+      else if (p.kind === 'text') dessinerTexte(page, p, geo.mediaH, polices)
+      else if (p.kind === 'image') await dessinerImage(doc, page, p, geo.mediaH, loadImage, imagesEmbarquees)
     }
   }
 
   return doc.save()
+}
+
+/**
+ * Boîtes d'impression : elles disent au façonnier où couper (TrimBox) et
+ * jusqu'où le fond perdu s'étend (BleedBox). Sans elles, l'imprimeur ne peut
+ * que deviner d'après les traits.
+ */
+function definirBoites(page, geo) {
+  // pdf-lib attend (x, y, largeur, hauteur) — et non deux coins opposés.
+  // L'ordonnée est celle du bord INFÉRIEUR, l'origine du PDF étant en bas.
+  const enPdf = (b) => [
+    mmToPt(b.x),
+    mmToPt(geo.mediaH - b.y - b.h),
+    mmToPt(b.w),
+    mmToPt(b.h),
+  ]
+  page.setMediaBox(0, 0, mmToPt(geo.mediaW), mmToPt(geo.mediaH))
+  page.setBleedBox(...enPdf(geo.bleedBox))
+  page.setTrimBox(...enPdf(geo.trimBox))
 }
 
 function dessinerRect(page, p, pageHeightMm) {
@@ -128,6 +160,19 @@ function dessinerRect(page, p, pageHeightMm) {
     width: mmToPt(p.w),
     height: mmToPt(p.h),
     color: rgb(couleur.r, couleur.g, couleur.b),
+  })
+}
+
+/** Repère de repérage : cercle non rempli, tracé au trait. */
+function dessinerCercle(page, p, pageHeightMm) {
+  const couleur = parseColor(p.stroke)
+  if (!couleur || p.r <= 0) return
+  page.drawCircle({
+    x: mmToPt(p.x),
+    y: mmToPt(pageHeightMm - p.y),
+    size: mmToPt(p.r),
+    borderColor: rgb(couleur.r, couleur.g, couleur.b),
+    borderWidth: mmToPt(p.thickness ?? 0.1),
   })
 }
 

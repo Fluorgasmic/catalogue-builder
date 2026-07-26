@@ -145,6 +145,27 @@ describe('renderPdf', () => {
     expect(sansPolice).toHaveLength(0)
   })
 
+  it('déclare les boîtes d\'impression attendues par le façonnier', async () => {
+    // Sans TrimBox ni BleedBox, l'imprimeur ne peut que deviner d'après les
+    // traits où couper et jusqu'où le fond perdu s'étend.
+    const octets = await rendre({ prepress: { bleed: 3, cropMarks: true, registration: true } })
+    const page = (await PDFDocument.load(octets)).getPage(0)
+
+    const enMm = (v) => v / mmToPt(1)
+    expect(enMm(page.getTrimBox().width)).toBeCloseTo(210, 1)
+    expect(enMm(page.getTrimBox().height)).toBeCloseTo(297, 1)
+    expect(enMm(page.getBleedBox().width)).toBeCloseTo(216, 1)   // 210 + 3 + 3
+    expect(enMm(page.getBleedBox().height)).toBeCloseTo(303, 1)
+    // Le support réserve en plus la place des traits.
+    expect(enMm(page.getMediaBox().width)).toBeGreaterThan(216)
+  })
+
+  it('laisse le support au format fini quand le prépresse est désactivé', async () => {
+    const page = (await PDFDocument.load(await rendre())).getPage(0)
+    expect(page.getMediaBox().width).toBeCloseTo(mmToPt(210), 1)
+    expect(page.getMediaBox().height).toBeCloseTo(mmToPt(297), 1)
+  })
+
   it('ne plante pas sur une page vide', async () => {
     const octets = await renderPdf({ pages: [[]], pageWidthMm: 210, pageHeightMm: 297, loadImage: async () => null })
     expect((await PDFDocument.load(octets)).getPageCount()).toBe(1)

@@ -9,6 +9,7 @@ import { usePagination } from '../../hooks/usePagination'
 import { calcVignetteDimensions } from '../../utils/layoutCalculator'
 import PageCanvas from '../PagePreview/PageCanvas'
 import { exportVectorPdf, policesNonEmbarquables } from '../../export/exportVectorPdf'
+import NumberInput from '../UI/NumberInput'
 
 // Wait for all <img> elements inside a container to finish loading
 function waitForImages(container, timeout = 8000) {
@@ -26,7 +27,7 @@ function waitForImages(container, timeout = 8000) {
 }
 
 export default function ExportModal({ onClose }) {
-  const { rawData, grid, header, footer, groupColumn, projectName, customFonts } = useCatalogStore()
+  const { rawData, grid, header, footer, groupColumn, projectName, customFonts, prepress, setPrepress } = useCatalogStore()
   const pages = usePagination(rawData, grid, groupColumn)
   const dims = calcVignetteDimensions(grid, header, footer)
 
@@ -219,6 +220,53 @@ export default function ExportModal({ onClose }) {
                   </div>
                 )}
               </div>
+
+              {moteur === 'vector' && (
+                <div>
+                  <label className="label mb-3 block">Prépresse</label>
+                  <div className="flex flex-col gap-3 p-3 bg-surface-3 rounded-xl border border-surface-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-200">Fond perdu</p>
+                        <p className="text-[10px] text-gray-600 leading-relaxed">
+                          Débord des aplats hors du format fini, pour qu'un décalage
+                          de coupe ne laisse pas de liseré blanc. 3 mm est l'usage.
+                        </p>
+                      </div>
+                      <div className="w-24 shrink-0">
+                        <NumberInput
+                          value={prepress?.bleed ?? 0}
+                          onChange={(v) => setPrepress({ bleed: v })}
+                          min={0} max={20} step={0.5} unit="mm"
+                        />
+                      </div>
+                    </div>
+
+                    {[
+                      { cle: 'cropMarks', label: 'Traits de coupe', sub: 'Indiquent au massicot où couper' },
+                      { cle: 'registration', label: 'Repères de repérage', sub: 'Calage des plaques d\'encre entre elles' },
+                    ].map((opt) => (
+                      <label key={opt.cle} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(prepress?.[opt.cle])}
+                          onChange={(e) => setPrepress({ [opt.cle]: e.target.checked })}
+                          className="accent-accent"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-xs text-gray-200">{opt.label}</span>
+                          <span className="block text-[10px] text-gray-600">{opt.sub}</span>
+                        </span>
+                      </label>
+                    ))}
+
+                    <p className="text-[10px] text-gray-600 leading-relaxed pt-1 border-t border-surface-4">
+                      Un en-tête à fond perdu s'obtient en mettant sa marge haute à zéro :
+                      le bandeau déborde alors de lui-même.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className={moteur === 'vector' ? 'opacity-40 pointer-events-none' : ''}>
                 <label className="label mb-3 block">

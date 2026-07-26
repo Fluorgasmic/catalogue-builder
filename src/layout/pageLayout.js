@@ -72,7 +72,7 @@ export function gridCells(grid, dims) {
 export function layoutPage({
   rows = [], grid, header, footer, headerBlocks = [], footerBlocks = [], vignetteBlocks = [],
   dims, pageIndex = 0, totalPages = 1, groupLabel = '',
-  measurerFor, resolveImage,
+  measurerFor, resolveImage, bleedMm = 0,
 }) {
   const primitives = []
   const vars = { pageIndex, totalPages, groupLabel }
@@ -80,7 +80,7 @@ export function layoutPage({
   // ── Bandeau d'en-tête ────────────────────────────────────────────────────
   if (header?.enabled && dims.headerH > 0) {
     const hauteurBande = header.height ?? 18
-    primitives.push(...bandeau(header.bgColor, grid.margins.top, dims.pageW, hauteurBande))
+    primitives.push(...bandeau(header.bgColor, grid.margins.top, dims.pageW, hauteurBande, { bleed: bleedMm, pageH: dims.pageH }))
     primitives.push(...offsetPrimitives(
       layoutFreeBlocks({
         blocks: resolveTemplateVars(headerBlocks, vars),
@@ -116,7 +116,7 @@ export function layoutPage({
   if (footer?.enabled && dims.footerH > 0) {
     const hauteurBande = footer.height ?? 8
     const hautPied = dims.pageH - grid.margins.bottom - hauteurBande
-    primitives.push(...bandeau(footer.bgColor, hautPied, dims.pageW, hauteurBande))
+    primitives.push(...bandeau(footer.bgColor, hautPied, dims.pageW, hauteurBande, { bleed: bleedMm, pageH: dims.pageH }))
     primitives.push(...offsetPrimitives(
       layoutFreeBlocks({
         blocks: resolveTemplateVars(footerBlocks, vars),
@@ -133,8 +133,29 @@ export function layoutPage({
   return primitives
 }
 
-/** Fond pleine largeur d'une zone — rien si la couleur est transparente. */
-function bandeau(bgColor, y, largeur, hauteur) {
+/**
+ * Fond pleine largeur d'une zone — rien si la couleur est transparente.
+ *
+ * Avec un fond perdu, le bandeau déborde latéralement, et verticalement dès
+ * qu'il touche un bord de page : c'est ce qui évite le liseré blanc quand la
+ * coupe ripe de quelques dixièmes. Un en-tête à fond perdu s'obtient donc en
+ * mettant la marge haute à zéro.
+ */
+function bandeau(bgColor, y, largeur, hauteur, { bleed = 0, pageH = 0 } = {}) {
   if (!bgColor || bgColor === 'transparent') return []
-  return [{ kind: 'rect', x: 0, y, w: largeur, h: hauteur, fill: bgColor, radius: 0 }]
+  if (bleed <= 0) {
+    return [{ kind: 'rect', x: 0, y, w: largeur, h: hauteur, fill: bgColor, radius: 0 }]
+  }
+
+  const toucheHaut = y <= 0.001
+  const toucheBas = Math.abs(y + hauteur - pageH) <= 0.001
+  const yEtendu = toucheHaut ? -bleed : y
+  const hEtendue = hauteur + (toucheHaut ? bleed : 0) + (toucheBas ? bleed : 0)
+
+  return [{
+    kind: 'rect',
+    x: -bleed, y: yEtendu,
+    w: largeur + bleed * 2, h: hEtendue,
+    fill: bgColor, radius: 0,
+  }]
 }

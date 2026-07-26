@@ -44,7 +44,7 @@ export function resolveBlockImage(block, row, { imageBasePath, imageColumn, imag
 export async function exportVectorPdf({ pages, dims, state, onProgress }) {
   const {
     grid, header, footer, headerBlocks, footerBlocks, vignetteBlocks,
-    imageBasePath, imageColumn, imageExtension, customFonts, projectName,
+    imageBasePath, imageColumn, imageExtension, customFonts, projectName, prepress,
   } = state
 
   const contexte = { imageBasePath, imageColumn, imageExtension }
@@ -60,6 +60,7 @@ export async function exportVectorPdf({ pages, dims, state, onProgress }) {
       groupLabel: page.groupLabel ?? '',
       measurerFor,
       resolveImage: (block, row) => resolveBlockImage(block, row, contexte),
+      bleedMm: prepress?.bleed ?? 0,
     })
   })
 
@@ -70,6 +71,7 @@ export async function exportVectorPdf({ pages, dims, state, onProgress }) {
     customFonts: customFonts ?? [],
     loadImage: loadImageBytes,
     metadata: { title: projectName || 'Catalogue' },
+    prepress: prepress ?? {},
   })
 }
 

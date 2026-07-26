@@ -92,6 +92,13 @@ const useCatalogStore = create(
       setAssetSource: (partial) => set((s) => ({ assetSource: { ...s.assetSource, ...partial } })),
       setAssetSourceConfig: (config) => set((s) => ({ assetSource: { ...s.assetSource, config: { ...s.assetSource.config, ...config } } })),
 
+      // ── Prépresse ─────────────────────────────────────────────
+      // Réglages d'impression : débord des aplats hors du format fini, et
+      // marques destinées au façonnier. Persistés avec le projet, car ils
+      // dépendent de l'imprimeur retenu.
+      prepress: { bleed: 3, cropMarks: true, registration: false },
+      setPrepress: (partial) => set((s) => ({ prepress: { ...s.prepress, ...partial } })),
+
       // Dérivé pour compat des composants de rendu : renvoie une valeur "basePath"
       // interprétable par buildImageUrl ('__local__', une URL, ou '').
       imageBasePath: '',
@@ -201,6 +208,7 @@ const useCatalogStore = create(
           groupColumn: s.groupColumn,
           imageSource: s.imageSource,
           assetSource: s.assetSource,
+          prepress: s.prepress,
           imageColumn: s.imageColumn,
           imageExtension: s.imageExtension,
           savedColors: s.savedColors,
@@ -225,6 +233,7 @@ const useCatalogStore = create(
             groupColumn: data.groupColumn ?? null,
             imageSource,
             assetSource: data.assetSource ?? { providerId: 'local', config: {} },
+            prepress: data.prepress ?? { bleed: 3, cropMarks: true, registration: false },
             imageBasePath: deriveBasePath(imageSource),
             imageColumn: data.imageColumn ?? null,
             imageExtension: data.imageExtension ?? '.jpg',
@@ -244,6 +253,7 @@ const useCatalogStore = create(
         imageColumn: null, imageExtension: '.jpg',
         imageSource: { providerId: 'http', config: { baseUrl: '' } },
         assetSource: { providerId: 'local', config: {} },
+        prepress: { bleed: 3, cropMarks: true, registration: false },
         imageBasePath: '',
         grid: DEFAULT_GRID,
         vignetteBlocks: [], selectedBlockId: null,
@@ -271,6 +281,7 @@ const useCatalogStore = create(
         projectName: s.projectName,
         imageSource: s.imageSource,
         assetSource: s.assetSource,
+        prepress: s.prepress,
         imageExtension: s.imageExtension,
         groupColumn: s.groupColumn,
       }),
