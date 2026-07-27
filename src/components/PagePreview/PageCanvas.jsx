@@ -5,7 +5,7 @@ import useCatalogStore from '../../store/catalogStore'
 import VignettePlaceholder from './VignettePlaceholder'
 import { AnyBlock } from '../VignetteBuilder/blockRenderer'
 import { blockImageSrc } from '../../utils/assetUrl'
-import { gridCells } from '../../layout/pageLayout'
+import { gridCells, blocksForSlot } from '../../layout/pageLayout'
 import { breakKey } from '../../hooks/usePagination'
 
 /**
@@ -19,6 +19,8 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
   const breakKeyColumn = useCatalogStore((s) => s.breakKeyColumn)
   const columns = useCatalogStore((s) => s.columns)
   const togglePageBreak = useCatalogStore((s) => s.togglePageBreak)
+  const vignetteBlocks = useCatalogStore((s) => s.vignetteBlocks)
+  const vignetteLayouts = useCatalogStore((s) => s.vignetteLayouts)
 
   const logoSrc = blockImageSrc({ assetName: header.logo?.assetName, legacySrc: header.logo?.src })
 
@@ -195,6 +197,7 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
               vignetteH={place.h}
               zoom={zoom}
               index={pageIndex * emplacements.length + i}
+              blocks={blocksForSlot(place, vignetteBlocks, vignetteLayouts)}
             />
 
             {/* Saut de page forcé : la coupure est attachée au produit, donc

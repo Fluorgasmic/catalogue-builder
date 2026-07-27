@@ -45,6 +45,7 @@ export async function exportVectorPdf({ pages, dims, state, onProgress }) {
   const {
     grid, header, footer, headerBlocks, footerBlocks, vignetteBlocks,
     imageBasePath, imageColumn, imageExtension, customFonts, projectName, prepress,
+    vignetteLayouts,
   } = state
 
   const contexte = { imageBasePath, imageColumn, imageExtension }
@@ -62,6 +63,7 @@ export async function exportVectorPdf({ pages, dims, state, onProgress }) {
       resolveImage: (block, row) => resolveBlockImage(block, row, contexte),
       bleedMm: prepress?.bleed ?? 0,
       template: page.template ?? null,
+      vignetteLayouts: vignetteLayouts ?? [],
     })
   })
 

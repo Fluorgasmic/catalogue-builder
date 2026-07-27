@@ -92,6 +92,29 @@ const useCatalogStore = create(
       setAssetSource: (partial) => set((s) => ({ assetSource: { ...s.assetSource, ...partial } })),
       setAssetSourceConfig: (config) => set((s) => ({ assetSource: { ...s.assetSource, config: { ...s.assetSource.config, ...config } } })),
 
+      // ── Dispositions de vignette ──────────────────────────────
+      // Une grande vignette pleine largeur et une petite de bas de page n'ont
+      // pas les mêmes proportions : chacune mérite son agencement de blocs.
+      // `vignetteBlocks` reste la disposition du projet ; celles-ci s'y
+      // ajoutent et sont désignées bande par bande dans un gabarit.
+      vignetteLayouts: [],
+
+      saveVignetteLayout: (nom) => set((s) => {
+        const id = `disp-${Date.now().toString(36)}`
+        return {
+          vignetteLayouts: [
+            ...s.vignetteLayouts,
+            { id, name: nom || `Disposition ${s.vignetteLayouts.length + 1}`, blocks: s.vignetteBlocks },
+          ],
+        }
+      }),
+      updateVignetteLayout: (id, blocks) => set((s) => ({
+        vignetteLayouts: s.vignetteLayouts.map((l) => l.id === id ? { ...l, blocks } : l),
+      })),
+      removeVignetteLayout: (id) => set((s) => ({
+        vignetteLayouts: s.vignetteLayouts.filter((l) => l.id !== id),
+      })),
+
       // ── Gabarits de page ──────────────────────────────────────
       // Quel découpage de page pour quelle catégorie. `null` signifie « la
       // grille du projet », ce qui laisse les catalogues existants inchangés.
@@ -239,6 +262,7 @@ const useCatalogStore = create(
           imageSource: s.imageSource,
           assetSource: s.assetSource,
           prepress: s.prepress,
+          vignetteLayouts: s.vignetteLayouts,
           pageTemplates: s.pageTemplates,
           defaultTemplateId: s.defaultTemplateId,
           templateByGroup: s.templateByGroup,
@@ -269,6 +293,7 @@ const useCatalogStore = create(
             imageSource,
             assetSource: data.assetSource ?? { providerId: 'local', config: {} },
             prepress: data.prepress ?? { bleed: 3, cropMarks: true, registration: false },
+            vignetteLayouts: data.vignetteLayouts ?? [],
             pageTemplates: data.pageTemplates ?? [],
             defaultTemplateId: data.defaultTemplateId ?? null,
             templateByGroup: data.templateByGroup ?? {},
@@ -294,6 +319,7 @@ const useCatalogStore = create(
         imageSource: { providerId: 'http', config: { baseUrl: '' } },
         assetSource: { providerId: 'local', config: {} },
         prepress: { bleed: 3, cropMarks: true, registration: false },
+        vignetteLayouts: [],
         pageTemplates: [], defaultTemplateId: null, templateByGroup: {},
         pageBreaks: [], breakKeyColumn: null,
         imageBasePath: '',
@@ -324,6 +350,7 @@ const useCatalogStore = create(
         imageSource: s.imageSource,
         assetSource: s.assetSource,
         prepress: s.prepress,
+        vignetteLayouts: s.vignetteLayouts,
         pageTemplates: s.pageTemplates,
         defaultTemplateId: s.defaultTemplateId,
         templateByGroup: s.templateByGroup,

@@ -9,8 +9,11 @@ import { flowBlockHeight } from '../../blocks/blockMetrics'
  * Renders one product vignette in the page preview.
  * Uses the exact same AnyBlock engine as VignetteCanvas — zero drift.
  */
-export default function VignettePlaceholder({ row, vignetteW, vignetteH, zoom, index }) {
+export default function VignettePlaceholder({ row, vignetteW, vignetteH, zoom, index, blocks }) {
   const { vignetteBlocks, columns, imageBasePath, imageColumn, imageExtension } = useCatalogStore()
+  // La disposition peut venir de la bande du gabarit ; sinon c'est celle du
+  // projet. Une grande vignette n'a pas à porter la mise en page des petites.
+  const blocsUtilises = blocks ?? vignetteBlocks
   // Re-render after local images are lazily cached
   useLocalImageRefresh(imageBasePath, index)
 
@@ -21,13 +24,13 @@ export default function VignettePlaceholder({ row, vignetteW, vignetteH, zoom, i
   // Simplifies to zoom/100.
   const scale = zoom / 100
 
-  const hasBlocks = vignetteBlocks.length > 0
+  const hasBlocks = blocsUtilises.length > 0
 
   if (hasBlocks) {
     return (
       <BlockVignette
         wPx={wPx} hPx={hPx} scale={scale}
-        row={row} blocks={vignetteBlocks}
+        row={row} blocks={blocsUtilises}
         imageBasePath={imageBasePath} imageColumn={imageColumn} imageExtension={imageExtension}
       />
     )

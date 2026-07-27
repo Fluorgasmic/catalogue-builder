@@ -69,7 +69,7 @@ export function templateSlots(template, zone, grid = {}) {
   const emplacements = []
   let yBande = zone.y
 
-  for (const bande of bandes) {
+  for (const [indexBande, bande] of bandes.entries()) {
     const hauteurBande = (bande.heightPct / 100) * zone.h
     const colonnes = Math.max(0, Math.floor(bande.columns ?? 0))
     const lignes = Math.max(0, Math.floor(bande.rows ?? 0))
@@ -90,6 +90,11 @@ export function templateSlots(template, zone, grid = {}) {
               y: yBande + r * (hauteur + gV),
               w: largeur,
               h: hauteur,
+              // Chaque emplacement se souvient de sa bande : une vignette
+              // pleine largeur n'a pas à porter la mise en page conçue pour
+              // les petites du bas de page.
+              band: indexBande,
+              vignetteLayoutId: bande.vignetteLayoutId ?? null,
             })
           }
         }

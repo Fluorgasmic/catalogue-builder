@@ -119,6 +119,34 @@ describe('templateSlots', () => {
   })
 })
 
+describe('templateSlots — disposition par bande', () => {
+  const mixte = {
+    bands: [
+      { heightPct: 40, columns: 1, rows: 1, vignetteLayoutId: 'grande' },
+      { heightPct: 60, columns: 3, rows: 2 },
+    ],
+  }
+
+  it('rattache chaque emplacement à sa bande', () => {
+    const s = templateSlots(mixte, ZONE)
+    expect(s[0].band).toBe(0)
+    expect(s.slice(1).every((x) => x.band === 1)).toBe(true)
+  })
+
+  it('propage la disposition de vignette de la bande', () => {
+    // C'est ce qui permet à la grande vignette du haut de ne pas hériter de
+    // la mise en page conçue pour les petites du bas.
+    const s = templateSlots(mixte, ZONE)
+    expect(s[0].vignetteLayoutId).toBe('grande')
+    expect(s[1].vignetteLayoutId).toBeNull()
+  })
+
+  it('laisse la disposition à null quand la bande n\'en désigne aucune', () => {
+    const s = templateSlots(troisPuisSix, ZONE)
+    expect(s.every((x) => x.vignetteLayoutId === null)).toBe(true)
+  })
+})
+
 describe('uniformTemplate', () => {
   it('reproduit la grille actuelle en une seule bande', () => {
     const t = uniformTemplate({ columns: 2, rows: 3 })

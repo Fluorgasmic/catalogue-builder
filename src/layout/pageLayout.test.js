@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutPage, gridCells, offsetPrimitives, resolveTemplateVars } from './pageLayout'
+import { layoutPage, gridCells, offsetPrimitives, resolveTemplateVars, blocksForSlot } from './pageLayout'
 import { calcVignetteDimensions } from '../utils/layoutCalculator'
 import { createBlock } from '../blocks/blockTypes'
 
@@ -200,5 +200,29 @@ describe('layoutPage', () => {
       dims: calcVignetteDimensions(grid, { enabled: false }, { enabled: false }),
       measurerFor,
     })).toEqual([])
+  })
+})
+
+describe('blocksForSlot', () => {
+  const parDefaut = [{ id: 'a', type: 'text' }]
+  const grande = [{ id: 'b', type: 'image' }, { id: 'c', type: 'text' }]
+  const dispositions = [{ id: 'grande', name: 'Grande', blocks: grande }]
+
+  it('rend la disposition du projet quand la bande n\'en désigne pas', () => {
+    expect(blocksForSlot({ vignetteLayoutId: null }, parDefaut, dispositions)).toBe(parDefaut)
+  })
+
+  it('rend celle désignée par la bande', () => {
+    expect(blocksForSlot({ vignetteLayoutId: 'grande' }, parDefaut, dispositions)).toBe(grande)
+  })
+
+  it('retombe sur celle du projet si la disposition a été supprimée', () => {
+    // Mieux vaut une vignette au format habituel qu'une vignette vide.
+    expect(blocksForSlot({ vignetteLayoutId: 'effacee' }, parDefaut, dispositions)).toBe(parDefaut)
+  })
+
+  it('supporte un emplacement sans information de bande', () => {
+    expect(blocksForSlot(undefined, parDefaut, dispositions)).toBe(parDefaut)
+    expect(blocksForSlot({}, parDefaut)).toBe(parDefaut)
   })
 })

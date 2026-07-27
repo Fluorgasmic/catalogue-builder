@@ -46,6 +46,24 @@ export function gridCells(grid, dims, template) {
 }
 
 /**
+ * Blocs à utiliser pour un emplacement.
+ *
+ * Une vignette pleine largeur et une vignette de bas de page n'ont pas les
+ * mêmes proportions : leur imposer la même mise en page laisse la grande à
+ * moitié vide, avec une image démesurée et du texte perdu dans un coin. Une
+ * bande peut donc désigner sa propre disposition ; à défaut, celle du projet
+ * s'applique.
+ */
+export function blocksForSlot(slot, defaultBlocks = [], layouts = []) {
+  const id = slot?.vignetteLayoutId
+  if (!id) return defaultBlocks
+  const disposition = layouts.find((l) => l.id === id)
+  // Disposition supprimée mais encore référencée : on retombe sur celle du
+  // projet plutôt que de laisser une vignette vide.
+  return disposition?.blocks ?? defaultBlocks
+}
+
+/**
  * @param {object} p
  * @param {object[]} p.rows            produits de la page
  * @param {object} p.grid
@@ -65,7 +83,7 @@ export function gridCells(grid, dims, template) {
 export function layoutPage({
   rows = [], grid, header, footer, headerBlocks = [], footerBlocks = [], vignetteBlocks = [],
   dims, pageIndex = 0, totalPages = 1, groupLabel = '',
-  measurerFor, resolveImage, bleedMm = 0, template = null,
+  measurerFor, resolveImage, bleedMm = 0, template = null, vignetteLayouts = [],
 }) {
   const primitives = []
   const vars = { pageIndex, totalPages, groupLabel }
@@ -97,7 +115,7 @@ export function layoutPage({
     if (!place) return
     primitives.push(...offsetPrimitives(
       layoutVignette({
-        blocks: vignetteBlocks,
+        blocks: blocksForSlot(place, vignetteBlocks, vignetteLayouts),
         row,
         widthMm: place.w,
         heightMm: place.h,
