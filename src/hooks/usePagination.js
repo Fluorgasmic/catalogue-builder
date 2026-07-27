@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { paginate } from '../utils/pagination'
 import useCatalogStore from '../store/catalogStore'
+import { templateResolver } from '../document/templateRegistry'
 
 /**
  * Clé d'un produit pour les sauts de page.
@@ -24,14 +25,21 @@ export function usePagination(rawData, grid, groupColumn) {
   const pageBreaks = useCatalogStore((s) => s.pageBreaks)
   const breakKeyColumn = useCatalogStore((s) => s.breakKeyColumn)
   const columns = useCatalogStore((s) => s.columns)
+  const pageTemplates = useCatalogStore((s) => s.pageTemplates)
+  const defaultTemplateId = useCatalogStore((s) => s.defaultTemplateId)
+  const templateByGroup = useCatalogStore((s) => s.templateByGroup)
 
   return useMemo(() => {
     const coupures = new Set(pageBreaks ?? [])
     return paginate(rawData, grid, groupColumn, {
+      templateFor: templateResolver({
+        templateByGroup, defaultTemplateId, custom: pageTemplates,
+      }),
       breakBefore: coupures.size === 0
         ? undefined
         : (row) => coupures.has(breakKey(row, breakKeyColumn, columns)),
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawData, grid.columns, grid.rows, groupColumn, pageBreaks, breakKeyColumn, columns])
+  }, [rawData, grid, groupColumn, pageBreaks, breakKeyColumn, columns,
+      pageTemplates, defaultTemplateId, templateByGroup])
 }

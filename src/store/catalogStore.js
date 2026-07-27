@@ -92,6 +92,21 @@ const useCatalogStore = create(
       setAssetSource: (partial) => set((s) => ({ assetSource: { ...s.assetSource, ...partial } })),
       setAssetSourceConfig: (config) => set((s) => ({ assetSource: { ...s.assetSource, config: { ...s.assetSource.config, ...config } } })),
 
+      // ── Gabarits de page ──────────────────────────────────────
+      // Quel découpage de page pour quelle catégorie. `null` signifie « la
+      // grille du projet », ce qui laisse les catalogues existants inchangés.
+      pageTemplates: [],          // gabarits composés par l'utilisateur
+      defaultTemplateId: null,
+      templateByGroup: {},        // { 'Chocolats': 'trois-puis-six' }
+
+      setDefaultTemplate: (id) => set({ defaultTemplateId: id || null }),
+      setGroupTemplate: (groupe, id) => set((s) => {
+        const suivant = { ...s.templateByGroup }
+        if (id) suivant[groupe] = id
+        else delete suivant[groupe]   // revient au gabarit par défaut
+        return { templateByGroup: suivant }
+      }),
+
       // ── Structure du document ─────────────────────────────────
       // Sauts de page forcés, désignés par la valeur d'une colonne clé plutôt
       // que par un numéro de page : la coupure suit donc son produit et
@@ -224,6 +239,9 @@ const useCatalogStore = create(
           imageSource: s.imageSource,
           assetSource: s.assetSource,
           prepress: s.prepress,
+          pageTemplates: s.pageTemplates,
+          defaultTemplateId: s.defaultTemplateId,
+          templateByGroup: s.templateByGroup,
           pageBreaks: s.pageBreaks,
           breakKeyColumn: s.breakKeyColumn,
           imageColumn: s.imageColumn,
@@ -251,6 +269,9 @@ const useCatalogStore = create(
             imageSource,
             assetSource: data.assetSource ?? { providerId: 'local', config: {} },
             prepress: data.prepress ?? { bleed: 3, cropMarks: true, registration: false },
+            pageTemplates: data.pageTemplates ?? [],
+            defaultTemplateId: data.defaultTemplateId ?? null,
+            templateByGroup: data.templateByGroup ?? {},
             pageBreaks: data.pageBreaks ?? [],
             breakKeyColumn: data.breakKeyColumn ?? null,
             imageBasePath: deriveBasePath(imageSource),
@@ -273,6 +294,7 @@ const useCatalogStore = create(
         imageSource: { providerId: 'http', config: { baseUrl: '' } },
         assetSource: { providerId: 'local', config: {} },
         prepress: { bleed: 3, cropMarks: true, registration: false },
+        pageTemplates: [], defaultTemplateId: null, templateByGroup: {},
         pageBreaks: [], breakKeyColumn: null,
         imageBasePath: '',
         grid: DEFAULT_GRID,
@@ -302,6 +324,9 @@ const useCatalogStore = create(
         imageSource: s.imageSource,
         assetSource: s.assetSource,
         prepress: s.prepress,
+        pageTemplates: s.pageTemplates,
+        defaultTemplateId: s.defaultTemplateId,
+        templateByGroup: s.templateByGroup,
         pageBreaks: s.pageBreaks,
         breakKeyColumn: s.breakKeyColumn,
         imageExtension: s.imageExtension,

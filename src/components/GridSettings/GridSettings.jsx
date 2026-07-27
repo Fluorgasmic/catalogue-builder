@@ -4,6 +4,7 @@ import useCatalogStore from '../../store/catalogStore'
 import NumberInput from '../UI/NumberInput'
 import Select from '../UI/Select'
 import Divider from '../UI/Divider'
+import TemplateAssignment from './TemplateAssignment'
 import { calcVignetteDimensions, PAGE_FORMATS, CUSTOM_FORMAT, CUSTOM_MIN_MM, CUSTOM_MAX_MM } from '../../utils/layoutCalculator'
 
 const GRID_PRESETS = [
@@ -96,6 +97,11 @@ export default function GridSettings() {
           </div>
         )}
       </div>
+
+      <Divider />
+
+      {/* ── Gabarits de page ─────────────────────────────────── */}
+      <TemplateAssignment />
 
       <Divider />
 
