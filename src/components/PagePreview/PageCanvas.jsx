@@ -4,6 +4,7 @@ import useCatalogStore from '../../store/catalogStore'
 import VignettePlaceholder from './VignettePlaceholder'
 import { AnyBlock } from '../VignetteBuilder/blockRenderer'
 import { blockImageSrc } from '../../utils/assetUrl'
+import { gridCells } from '../../layout/pageLayout'
 
 /**
  * Renders one page of the catalogue at the given zoom level.
@@ -33,18 +34,14 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
   const headerPadRight = header.paddingRight != null ? mmToCssPx(header.paddingRight, zoom) : marginRightPx
   const footerPadLeft  = footer.paddingLeft  != null ? mmToCssPx(footer.paddingLeft,  zoom) : marginLeftPx
   const footerPadRight = footer.paddingRight != null ? mmToCssPx(footer.paddingRight, zoom) : marginRightPx
-  const gutterHpx = mmToCssPx(grid.gutterH, zoom)
-  const gutterVpx = mmToCssPx(grid.gutterV, zoom)
+  const { rows: rowItems, groupLabel, index: pageIndex, template } = pageData
 
-  const { rows: rowItems, groupLabel, index: pageIndex } = pageData
-
-  // Build the grid cells
-  const cells = []
-  for (let r = 0; r < grid.rows; r++) {
-    for (let c = 0; c < grid.columns; c++) {
-      cells.push({ row: r, col: c, product: rowItems[r * grid.columns + c] ?? null })
-    }
-  }
+  // Emplacements du gabarit de la page — la même fonction que celle qui sert
+  // à l'export, pour que l'écran et le PDF ne puissent pas diverger.
+  const emplacements = useMemo(
+    () => gridCells(grid, dims, template),
+    [grid, dims, template],
+  )
 
   return (
     <div
@@ -164,36 +161,34 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
         )
       )}
 
-      {/* ── Vignette grid ────────────────────────────────────── */}
-      <div
-        className="absolute"
-        style={{
-          left: marginLeftPx,
-          top: marginTopPx + headerHpx + (header.enabled && header.rule?.enabled ? (header.rule?.thickness ?? 1) * (zoom / 100) : 0),
-          width: pageWpx - marginLeftPx - marginRightPx,
-          height: pageHpx - marginTopPx - marginBottomPx - headerHpx - footerHpx,
-          display: 'grid',
-          gridTemplateColumns: `repeat(${grid.columns}, 1fr)`,
-          gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
-          gap: `${gutterVpx}px ${gutterHpx}px`,
-        }}
-      >
-        {cells.map(({ row: r, col: c, product }, i) => (
-          <div key={`${r}-${c}`}>
-            {product ? (
-              <VignettePlaceholder
-                row={product}
-                vignetteW={dims.vignetteWidth}
-                vignetteH={dims.vignetteHeight}
-                zoom={zoom}
-                index={pageIndex * (grid.columns * grid.rows) + i}
-              />
-            ) : (
-              <div className="w-full h-full" /> // empty cell
-            )}
+      {/* ── Vignettes, aux emplacements du gabarit ───────────────
+          Les mêmes emplacements que ceux du PDF : un seul calcul, deux
+          rendus. Une grille CSS `repeat()` ne saurait de toute façon pas
+          exprimer un gabarit à bandes de hauteurs différentes. */}
+      {emplacements.map((place, i) => {
+        const product = rowItems[i]
+        if (!product) return null
+        return (
+          <div
+            key={i}
+            className="absolute"
+            style={{
+              left: mmToCssPx(place.x, zoom),
+              top: mmToCssPx(place.y, zoom),
+              width: mmToCssPx(place.w, zoom),
+              height: mmToCssPx(place.h, zoom),
+            }}
+          >
+            <VignettePlaceholder
+              row={product}
+              vignetteW={place.w}
+              vignetteH={place.h}
+              zoom={zoom}
+              index={pageIndex * emplacements.length + i}
+            />
           </div>
-        ))}
-      </div>
+        )
+      })}
 
       {/* ── Footer ───────────────────────────────────────────── */}
       {footer.enabled && dims.footerH > 0 && (
