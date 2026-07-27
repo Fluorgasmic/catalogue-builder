@@ -145,7 +145,7 @@ export default function PagePreview() {
         >
           {currentPage ? (
             <div className="page-enter mx-auto">
-              <PageCanvas pageData={currentPage} zoom={previewZoom} totalPages={totalPages} />
+              <PageCanvas pageData={currentPage} zoom={previewZoom} totalPages={totalPages} interactive />
             </div>
           ) : (
             <div className="flex items-center justify-center h-full text-gray-600">

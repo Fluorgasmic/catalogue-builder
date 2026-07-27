@@ -1,16 +1,24 @@
 import { useMemo } from 'react'
+import { Scissors } from 'lucide-react'
 import { mmToCssPx, calcVignetteDimensions } from '../../utils/layoutCalculator'
 import useCatalogStore from '../../store/catalogStore'
 import VignettePlaceholder from './VignettePlaceholder'
 import { AnyBlock } from '../VignetteBuilder/blockRenderer'
 import { blockImageSrc } from '../../utils/assetUrl'
 import { gridCells } from '../../layout/pageLayout'
+import { breakKey } from '../../hooks/usePagination'
 
 /**
  * Renders one page of the catalogue at the given zoom level.
  */
-export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides = true }) {
+export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides = true, interactive = false }) {
   const { grid, header, footer, headerBlocks, footerBlocks, imageBasePath, imageColumn, imageExtension } = useCatalogStore()
+  // Contrôles d'édition : jamais rendus dans l'export, qui monte PageCanvas
+  // hors écran sans `interactive`.
+  const coupures = useCatalogStore((s) => s.pageBreaks)
+  const breakKeyColumn = useCatalogStore((s) => s.breakKeyColumn)
+  const columns = useCatalogStore((s) => s.columns)
+  const togglePageBreak = useCatalogStore((s) => s.togglePageBreak)
 
   const logoSrc = blockImageSrc({ assetName: header.logo?.assetName, legacySrc: header.logo?.src })
 
@@ -168,10 +176,12 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
       {emplacements.map((place, i) => {
         const product = rowItems[i]
         if (!product) return null
+        const cle = interactive ? breakKey(product, breakKeyColumn, columns) : null
+        const coupeIci = cle != null && coupures.includes(cle)
         return (
           <div
             key={i}
-            className="absolute"
+            className={`absolute ${interactive ? 'group' : ''}`}
             style={{
               left: mmToCssPx(place.x, zoom),
               top: mmToCssPx(place.y, zoom),
@@ -186,6 +196,29 @@ export default function PageCanvas({ pageData, zoom, totalPages = 1, showGuides 
               zoom={zoom}
               index={pageIndex * emplacements.length + i}
             />
+
+            {/* Saut de page forcé : la coupure est attachée au produit, donc
+                elle le suit si des articles sont ajoutés avant lui. */}
+            {cle != null && (
+              <button
+                onClick={() => togglePageBreak(cle)}
+                title={coupeIci
+                  ? 'Retirer le saut de page avant ce produit'
+                  : 'Commencer une nouvelle page à ce produit'}
+                className={`absolute -top-2 -left-2 w-5 h-5 rounded-full flex items-center justify-center
+                  shadow transition-opacity z-10
+                  ${coupeIci
+                    ? 'bg-accent text-white opacity-100'
+                    : 'bg-surface-3 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-gray-100'}`}
+              >
+                <Scissors size={10} />
+              </button>
+            )}
+
+            {/* Trait rappelant qu'une coupure démarre ici */}
+            {coupeIci && (
+              <div className="absolute -left-1 top-0 bottom-0 w-0.5 bg-accent rounded-full" />
+            )}
           </div>
         )
       })}

@@ -90,6 +90,70 @@ describe('paginate — capacité par gabarit', () => {
   })
 })
 
+describe('paginate — sauts de page forcés', () => {
+  const avant = (...refs) => (row) => refs.includes(row.Ref)
+
+  it('ouvre une page sur le produit désigné', () => {
+    // 6 par page ; sans saut, R4 serait sur la première page.
+    const pages = paginate(rows(8), grid, null, { breakBefore: avant('R4') })
+    expect(pages.map(p => p.rows.map(r => r.Ref).join(','))).toEqual([
+      'R1,R2,R3',
+      'R4,R5,R6,R7,R8',
+    ])
+  })
+
+  it('accepte plusieurs sauts', () => {
+    const pages = paginate(rows(9), grid, null, { breakBefore: avant('R3', 'R7') })
+    expect(pages.map(p => p.rows.length)).toEqual([2, 4, 3])
+  })
+
+  it('ne crée pas de page vide quand le saut tombe sur le premier produit', () => {
+    const pages = paginate(rows(4), grid, null, { breakBefore: avant('R1') })
+    expect(pages).toHaveLength(1)
+    expect(pages[0].rows).toHaveLength(4)
+  })
+
+  it('respecte aussi la capacité : un saut n\'autorise pas à déborder', () => {
+    const pages = paginate(rows(10), grid, null, { breakBefore: avant('R2') })
+    for (const p of pages) expect(p.rows.length).toBeLessThanOrEqual(6)
+  })
+
+  it('suit le produit et non sa position quand des produits sont ajoutés avant', () => {
+    // C'est l'intérêt de l'ancrage : insérer deux produits en tête ne déplace
+    // pas la coupure, elle reste devant R5.
+    const avantAjout = paginate(rows(8), grid, null, { breakBefore: avant('R5') })
+    const apresAjout = paginate(
+      [{ Ref: 'X1' }, { Ref: 'X2' }, ...rows(8)], grid, null, { breakBefore: avant('R5') },
+    )
+    const debutDeuxieme = (p) => p[1].rows[0].Ref
+    expect(debutDeuxieme(avantAjout)).toBe('R5')
+    expect(debutDeuxieme(apresAjout)).toBe('R5')
+  })
+
+  it('fonctionne à l\'intérieur d\'une catégorie', () => {
+    const data = [
+      ...rows(5).map(r => ({ ...r, Famille: 'Chocolats' })),
+      ...rows(3).map(r => ({ ...r, Famille: 'Bonbons' })),
+    ]
+    const pages = paginate(data, grid, 'Famille', { breakBefore: avant('R3') })
+    expect(pages.map(p => `${p.groupLabel}:${p.rows.length}`))
+      .toEqual(['Chocolats:2', 'Chocolats:3', 'Bonbons:2', 'Bonbons:1'])
+  })
+
+  it('marque correctement la première et la dernière page du groupe', () => {
+    const data = rows(5).map(r => ({ ...r, Famille: 'Chocolats' }))
+    const pages = paginate(data, grid, 'Famille', { breakBefore: avant('R3') })
+    expect(pages.map(p => p.isFirstOfGroup)).toEqual([true, false])
+    expect(pages.map(p => p.isLastOfGroup)).toEqual([false, true])
+  })
+
+  it('ne change rien sans saut déclaré', () => {
+    const sans = paginate(rows(13), grid, null)
+    const avecAucun = paginate(rows(13), grid, null, { breakBefore: () => false })
+    expect(avecAucun.map(p => p.rows.length)).toEqual(sans.map(p => p.rows.length))
+  })
+})
+
 describe('paginate — regroupement par colonne', () => {
   const byFamily = [
     ...rows(2).map(r => ({ ...r, Famille: 'Chaises' })),

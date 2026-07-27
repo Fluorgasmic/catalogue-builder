@@ -92,6 +92,21 @@ const useCatalogStore = create(
       setAssetSource: (partial) => set((s) => ({ assetSource: { ...s.assetSource, ...partial } })),
       setAssetSourceConfig: (config) => set((s) => ({ assetSource: { ...s.assetSource, config: { ...s.assetSource.config, ...config } } })),
 
+      // ── Structure du document ─────────────────────────────────
+      // Sauts de page forcés, désignés par la valeur d'une colonne clé plutôt
+      // que par un numéro de page : la coupure suit donc son produit et
+      // survit à l'ajout d'articles avant lui.
+      pageBreaks: [],
+      breakKeyColumn: null,
+
+      setBreakKeyColumn: (col) => set({ breakKeyColumn: col }),
+      togglePageBreak: (cle) => set((s) => ({
+        pageBreaks: s.pageBreaks.includes(cle)
+          ? s.pageBreaks.filter((k) => k !== cle)
+          : [...s.pageBreaks, cle],
+      })),
+      clearPageBreaks: () => set({ pageBreaks: [] }),
+
       // ── Prépresse ─────────────────────────────────────────────
       // Réglages d'impression : débord des aplats hors du format fini, et
       // marques destinées au façonnier. Persistés avec le projet, car ils
@@ -209,6 +224,8 @@ const useCatalogStore = create(
           imageSource: s.imageSource,
           assetSource: s.assetSource,
           prepress: s.prepress,
+          pageBreaks: s.pageBreaks,
+          breakKeyColumn: s.breakKeyColumn,
           imageColumn: s.imageColumn,
           imageExtension: s.imageExtension,
           savedColors: s.savedColors,
@@ -234,6 +251,8 @@ const useCatalogStore = create(
             imageSource,
             assetSource: data.assetSource ?? { providerId: 'local', config: {} },
             prepress: data.prepress ?? { bleed: 3, cropMarks: true, registration: false },
+            pageBreaks: data.pageBreaks ?? [],
+            breakKeyColumn: data.breakKeyColumn ?? null,
             imageBasePath: deriveBasePath(imageSource),
             imageColumn: data.imageColumn ?? null,
             imageExtension: data.imageExtension ?? '.jpg',
@@ -254,6 +273,7 @@ const useCatalogStore = create(
         imageSource: { providerId: 'http', config: { baseUrl: '' } },
         assetSource: { providerId: 'local', config: {} },
         prepress: { bleed: 3, cropMarks: true, registration: false },
+        pageBreaks: [], breakKeyColumn: null,
         imageBasePath: '',
         grid: DEFAULT_GRID,
         vignetteBlocks: [], selectedBlockId: null,
@@ -282,6 +302,8 @@ const useCatalogStore = create(
         imageSource: s.imageSource,
         assetSource: s.assetSource,
         prepress: s.prepress,
+        pageBreaks: s.pageBreaks,
+        breakKeyColumn: s.breakKeyColumn,
         imageExtension: s.imageExtension,
         groupColumn: s.groupColumn,
       }),
